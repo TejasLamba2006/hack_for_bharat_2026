@@ -1,2 +1,2 @@
-pathway>=0.29.1
+pathway[all]>=0.29.1
 python-dotenv>=1.2.1
