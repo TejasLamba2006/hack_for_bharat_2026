@@ -18,7 +18,7 @@ class AskQuestionSchema(pw.Schema):
 
 class RetrieveSchema(pw.Schema):
     query: str
-    k: int = 5
+    k: int | None  # Default handled in handler, not schema
 
 
 class ListDocumentsSchema(pw.Schema):
@@ -119,15 +119,6 @@ class CustomRAGRestServer:
         handler: Callable[[pw.Table], pw.Table],
         **additional_endpoint_kwargs,
     ):
-        """
-        Create a REST endpoint with Pathway's native REST connector.
-        
-        Args:
-            route: HTTP route path (e.g., "/v1/ask")
-            schema: Pathway Schema defining input structure
-            handler: Function that processes query table and returns response table
-            **additional_endpoint_kwargs: Additional arguments for rest_connector
-        """
         queries, writer = pw.io.http.rest_connector(
             webserver=self.webserver,
             schema=schema,
@@ -171,14 +162,6 @@ class CustomRAGRestServer:
         )
     
     def _handle_ask_question(self, query_table: pw.Table) -> pw.Table:
-        """
-        Handle POST /v1/pw_ai_answer
-        Frontend expects: { answer, sources[], tokens_used }
-        Input table has: prompt, filters, model
-        
-        Uses BaseRAGQuestionAnswerer.answer_query with return_context_docs=True
-        to get both answer and source documents.
-        """
         rag_queries = query_table.select(
             prompt=pw.this.prompt,
             filters=pw.this.filters if hasattr(pw.this, 'filters') else None,
@@ -198,11 +181,6 @@ class CustomRAGRestServer:
         return response
     
     def _format_sources(self, docs: Any) -> List[Dict]:
-        """
-        Transform Pathway docs to frontend source format.
-        Input: List of dicts with 'text', 'metadata', optional 'reranker_score'
-        Output: Frontend source format with document_name, line_number, excerpt, relevance
-        """
         sources = []
         if hasattr(docs, 'value'):
             docs = docs.value
@@ -222,14 +200,13 @@ class CustomRAGRestServer:
         return sources
     
     def _handle_retrieve(self, query_table: pw.Table) -> pw.Table:
-        """
-        Handle POST /v1/retrieve  
-        Frontend expects: { results[], total_results, search_time_ms }
-        Input table has: query, k
+        # Apply default value for k if None
+        query_with_defaults = query_table.select(
+            query=pw.this.query,
+            k=pw.apply(lambda k_val: k_val if k_val is not None else 5, pw.this.k)
+        )
         
-        Uses BaseRAGQuestionAnswerer.retrieve which delegates to indexer.retrieve_query
-        """
-        retrieval_results = self.rag_app.retrieve(query_table)
+        retrieval_results = self.rag_app.retrieve(query_with_defaults)
         response = retrieval_results.select(
             results=pw.apply(
                 self._format_retrieve_results,
@@ -273,13 +250,6 @@ class CustomRAGRestServer:
         return results_list
     
     def _handle_statistics(self, query_table: pw.Table) -> pw.Table:
-        """
-        Handle POST /v1/statistics
-        Frontend expects: { total_documents, total_chunks, embeddings_count, indexed_files[], ... }
-        Input table has: (empty)
-        
-        Uses BaseRAGQuestionAnswerer.statistics which delegates to indexer.statistics_query
-        """
         stats_results = self.rag_app.statistics(query_table)
         response = stats_results.select(
             total_documents=pw.apply(
@@ -309,13 +279,6 @@ class CustomRAGRestServer:
         return response
     
     def _handle_list_documents(self, query_table: pw.Table) -> pw.Table:
-        """
-        Handle POST /v1/pw_list_documents
-        Frontend expects: { documents[], total_count }
-        Input table has: keys (optional)
-        
-        Uses BaseRAGQuestionAnswerer.list_documents which delegates to indexer.parsed_documents_query
-        """
         docs_results = self.rag_app.list_documents(query_table)
         response = docs_results.select(
             documents=pw.apply(
@@ -352,13 +315,6 @@ class CustomRAGRestServer:
         return documents_list
     
     def _handle_summary(self, query_table: pw.Table) -> pw.Table:
-        """
-        Handle POST /v1/pw_ai_summary
-        Frontend expects: { summaries[] }
-        Input table has: text_list, model (optional)
-        
-        Uses BaseRAGQuestionAnswerer.summarize_query
-        """
         summary_results = self.rag_app.summarize_query(query_table)
         response = summary_results.select(
             summaries=pw.apply(
