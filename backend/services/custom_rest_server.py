@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from backend.core import config
 class AskQuestionSchema(pw.Schema):
     prompt: str
-    filters: pw.Json | None
+    filters: str | None  # ✅ Changed from pw.Json to str - Pathway expects string
     model: str | None
 
 
@@ -39,7 +39,6 @@ class CustomRAGRestServer:
         self.port = port
         
         
-        # PathwayWebserver only accepts host and port
         self.webserver = pw.io.http.PathwayWebserver(
             host=host,
             port=port,
@@ -166,11 +165,14 @@ class CustomRAGRestServer:
         )
     
     def _handle_ask_question(self, query_table: pw.Table) -> pw.Table:
+        # Map your API fields to Pathway's expected field names
+        # Pathway expects: query (not prompt), metadata_filter (not filters)
         rag_queries = query_table.select(
-            prompt=pw.this.prompt,
-            filters=pw.this.filters if hasattr(pw.this, 'filters') else None,
-            model=pw.this.model if hasattr(pw.this, 'model') else None,
-            return_context_docs=True,  
+            query=pw.this.prompt,  # ✅ Rename: prompt → query (Pathway expects 'query')
+            # Only add metadata_filter if filters is provided
+            metadata_filter=pw.this.filters if pw.this.filters is not None else None,  # ✅ Rename: filters → metadata_filter
+            # Note: Removed 'model' parameter - may not be supported by answer_query
+            # Note: Removed 'return_context_docs' - not needed, docs are returned by default
         )
         rag_responses = self.rag_app.answer_query(rag_queries)
         response = rag_responses.select(
