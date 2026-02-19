@@ -1,0 +1,14 @@
+Product,Category,Price,Stock,Rating
+Laptop,Electronics,999.99,15,4.5
+Mouse,Electronics,29.99,150,4.2
+Keyboard,Electronics,79.99,80,4.7
+Monitor,Electronics,299.99,25,4.6
+Headphones,Electronics,149.99,60,4.4
+Chair,Furniture,199.99,30,4.3
+Desk,Furniture,349.99,12,4.5
+Lamp,Furniture,49.99,45,4.1
+Notebook,Stationery,4.99,200,4.0
+Pen,Stationery,1.99,500,3.9
+Coffee Maker,Appliances,89.99,40,4.2
+Blender,Appliances,69.99,35,4.3
+Toaster,Appliances,39.99,55,4.1
