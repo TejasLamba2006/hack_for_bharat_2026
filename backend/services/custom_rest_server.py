@@ -3,6 +3,7 @@ from pathway.xpacks.llm import embedders, llms, parsers, splitters
 from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
 from pathway.xpacks.llm.vector_store import VectorStoreServer
 import sys
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Callable
 import json
@@ -36,10 +37,13 @@ class CustomRAGRestServer:
     def __init__(self, host: str, port: int, allowed_origins: List[str] = None):
         self.host = host
         self.port = port
+        
+        
+        # PathwayWebserver only accepts host and port
         self.webserver = pw.io.http.PathwayWebserver(
             host=host,
             port=port,
-            cors_allowed_origins=allowed_origins or ["*"],  
+            with_cors=True
         )
         
         self.embedder = self._create_embedder()
