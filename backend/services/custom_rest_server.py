@@ -1,11 +1,3 @@
-"""
-Custom Pathway REST Server for Hack For Green Bharat 2026
-Implements all frontend-required endpoints with exact response formats.
-
-Based on Pathway's native REST connector API:
-https://github.com/pathwaycom/pathway/blob/main/python/pathway/xpacks/llm/servers.py
-"""
-
 import pathway as pw
 from pathway.xpacks.llm import embedders, llms, parsers, splitters
 from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
@@ -18,13 +10,10 @@ from datetime import datetime
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from backend.core import config
-
-
-# Define input schemas for each endpoint
 class AskQuestionSchema(pw.Schema):
     prompt: str
-    filters: pw.Json | None = None
-    model: str | None = None
+    filters: pw.Json | None
+    model: str | None
 
 
 class RetrieveSchema(pw.Schema):
@@ -33,26 +22,24 @@ class RetrieveSchema(pw.Schema):
 
 
 class ListDocumentsSchema(pw.Schema):
-    keys: pw.Json | None = None
+    keys: pw.Json | None
 
 
 class SummarizeSchema(pw.Schema):
-    text_list: pw.Json  # List of strings
-    model: str | None = None
+    text_list: pw.Json
+    model: str | None
 
 
 class CustomRAGRestServer:
-    """Custom REST server with frontend-compatible response formats using Pathway's native API."""
+    
     
     def __init__(self, host: str, port: int, allowed_origins: List[str] = None):
         self.host = host
         self.port = port
-        
-        # Create PathwayWebserver with CORS support
         self.webserver = pw.io.http.PathwayWebserver(
             host=host,
             port=port,
-            cors_allowed_origins=allowed_origins or ["*"],  # Allow all origins by default
+            cors_allowed_origins=allowed_origins or ["*"],  
         )
         
         self.embedder = self._create_embedder()
@@ -62,7 +49,7 @@ class CustomRAGRestServer:
         self.data_sources = []
         
     def _create_embedder(self):
-        """Create embedder based on configuration."""
+        
         if config.EMBEDDER_TYPE == "sentence-transformers":
             return embedders.SentenceTransformerEmbedder(model=config.EMBEDDING_MODEL)
         elif config.EMBEDDER_TYPE == "openai":
@@ -74,7 +61,7 @@ class CustomRAGRestServer:
             raise ValueError(f"Unsupported embedder: {config.EMBEDDER_TYPE}")
     
     def _create_llm(self):
-        """Create LLM based on configuration."""
+        
         if config.LLM_API_BASE and "openrouter" in config.LLM_API_BASE.lower():
             api_key = config.OPENROUTER_API_KEY
         else:
@@ -93,7 +80,7 @@ class CustomRAGRestServer:
         return llms.OpenAIChat(**llm_kwargs)
     
     def _setup_document_store(self):
-        """Setup VectorStoreServer with document sources."""
+        
         self.data_sources.append(
             pw.io.fs.read(
                 path=str(config.DATA_DIR),
@@ -112,8 +99,6 @@ class CustomRAGRestServer:
             ),
             parser=parsers.UnstructuredParser(),
         )
-        
-        # Create RAG question answerer
         self.rag_app = BaseRAGQuestionAnswerer(
             llm=self.llm,
             indexer=self.doc_store,
@@ -143,56 +128,41 @@ class CustomRAGRestServer:
             handler: Function that processes query table and returns response table
             **additional_endpoint_kwargs: Additional arguments for rest_connector
         """
-        # Create REST connector - returns (input_table, output_writer)
         queries, writer = pw.io.http.rest_connector(
             webserver=self.webserver,
             schema=schema,
             route=route,
             **additional_endpoint_kwargs,
         )
-        
-        # Process queries through handler
         responses = handler(queries)
-        
-        # Write responses back to HTTP clients
         writer(responses)
     
     def _build_endpoints(self):
-        """Build all REST endpoints with frontend-compatible formats."""
         
-        # 1. POST /v1/pw_ai_answer - Ask question with RAG
         self.serve(
             route="/v1/pw_ai_answer",
             schema=AskQuestionSchema,
             handler=self._handle_ask_question,
             methods=("POST",),
         )
-        
-        # 2. POST /v1/retrieve - Search documents
         self.serve(
             route="/v1/retrieve",
             schema=RetrieveSchema,
             handler=self._handle_retrieve,
             methods=("POST",),
         )
-        
-        # 3. POST /v1/statistics - Get system statistics
         self.serve(
             route="/v1/statistics",
-            schema=pw.schema_from_types(),  # Empty schema for statistics
+            schema=pw.schema_from_types(),  
             handler=self._handle_statistics,
             methods=("POST",),
         )
-        
-        # 4. POST /v1/pw_list_documents - List all documents
         self.serve(
             route="/v1/pw_list_documents",
             schema=ListDocumentsSchema,
             handler=self._handle_list_documents,
             methods=("POST",),
         )
-        
-        # 5. POST /v1/pw_ai_summary - Summarize text
         self.serve(
             route="/v1/pw_ai_summary",
             schema=SummarizeSchema,
@@ -209,26 +179,20 @@ class CustomRAGRestServer:
         Uses BaseRAGQuestionAnswerer.answer_query with return_context_docs=True
         to get both answer and source documents.
         """
-        # Create query table with required schema for BaseRAGQuestionAnswerer
         rag_queries = query_table.select(
             prompt=pw.this.prompt,
             filters=pw.this.filters if hasattr(pw.this, 'filters') else None,
             model=pw.this.model if hasattr(pw.this, 'model') else None,
-            return_context_docs=True,  # Get source documents
+            return_context_docs=True,  
         )
-        
-        # Get RAG response with context docs
         rag_responses = self.rag_app.answer_query(rag_queries)
-        
-        # Transform to frontend format
-        # rag_responses has columns: result (answer string), docs (list of source chunks)
         response = rag_responses.select(
-            answer=pw.this.result,  # The LLM-generated answer
+            answer=pw.this.result,  
             sources=pw.apply(
                 self._format_sources,
                 pw.this.docs if hasattr(pw.this, 'docs') else pw.apply(lambda: [])
             ),
-            tokens_used=pw.apply(lambda: 0, ),  # TODO: Extract from LLM response metadata
+            tokens_used=pw.apply(lambda: 0, ),  
         )
         
         return response
@@ -240,8 +204,6 @@ class CustomRAGRestServer:
         Output: Frontend source format with document_name, line_number, excerpt, relevance
         """
         sources = []
-        
-        # Handle Pathway Json type
         if hasattr(docs, 'value'):
             docs = docs.value
         
@@ -253,8 +215,8 @@ class CustomRAGRestServer:
                 sources.append({
                     "document_name": Path(path).name if path != 'unknown' else 'unknown',
                     "line_number": metadata.get('line_number', 0),
-                    "excerpt": doc.get('text', '')[:300],  # First 300 chars
-                    "relevance": doc.get('reranker_score', 0.95 - idx * 0.05),  # Use reranker score if available
+                    "excerpt": doc.get('text', '')[:300],  
+                    "relevance": doc.get('reranker_score', 0.95 - idx * 0.05),  
                 })
         
         return sources
@@ -267,11 +229,7 @@ class CustomRAGRestServer:
         
         Uses BaseRAGQuestionAnswerer.retrieve which delegates to indexer.retrieve_query
         """
-        # Call the RAG app's retrieve method (delegates to VectorStoreServer)
         retrieval_results = self.rag_app.retrieve(query_table)
-        
-        # Transform to frontend format
-        # retrieval_results has column: result (list of documents)
         response = retrieval_results.select(
             results=pw.apply(
                 self._format_retrieve_results,
@@ -281,30 +239,23 @@ class CustomRAGRestServer:
                 lambda docs: len(docs.value if hasattr(docs, 'value') else docs) if docs else 0,
                 pw.this.result
             ),
-            search_time_ms=pw.apply(lambda: 0, ),  # Placeholder
+            search_time_ms=pw.apply(lambda: 0, ),  
         )
         
         return response
     
     def _format_retrieve_results(self, docs: Any) -> List[Dict]:
-        """Format retrieval results to frontend structure."""
-        results_list = []
         
-        # Handle Pathway Json type
+        results_list = []
         if hasattr(docs, 'value'):
             docs = docs.value
         
         if isinstance(docs, list):
             for idx, doc in enumerate(docs):
-                # Extract document information from Pathway's format
-                # Each doc has: text, metadata{path, ...}, optional dist/score
                 metadata = doc.get("metadata", {})
                 doc_path = metadata.get("path", "unknown")
                 doc_text = doc.get("text", "")
-                
-                # Distance is usually in 'dist' field (lower is better)
                 dist = doc.get("dist", 1.0)
-                # Convert distance to relevance score (inverse)
                 relevance = 1.0 - min(dist, 1.0) if dist else 0.0
                 
                 results_list.append({
@@ -329,26 +280,22 @@ class CustomRAGRestServer:
         
         Uses BaseRAGQuestionAnswerer.statistics which delegates to indexer.statistics_query
         """
-        # Call the RAG app's statistics method
         stats_results = self.rag_app.statistics(query_table)
-        
-        # Transform to frontend format
-        # stats_results has column: statistics (JSON with document_count, last_updated)
         response = stats_results.select(
             total_documents=pw.apply(
                 lambda stats: stats.get('document_count', 0) if isinstance(stats, dict) else (stats.value.get('document_count', 0) if hasattr(stats, 'value') else 0),
                 pw.this.statistics
             ),
             total_chunks=pw.apply(
-                lambda stats: stats.get('document_count', 0) * 10 if isinstance(stats, dict) else 0,  # Estimate
+                lambda stats: stats.get('document_count', 0) * 10 if isinstance(stats, dict) else 0,  
                 pw.this.statistics
             ),
             embeddings_count=pw.apply(
-                lambda stats: stats.get('document_count', 0) * 10 if isinstance(stats, dict) else 0,  # Same as chunks
+                lambda stats: stats.get('document_count', 0) * 10 if isinstance(stats, dict) else 0,  
                 pw.this.statistics
             ),
-            total_tokens=pw.apply(lambda: 0, ),  # Not available from Pathway stats
-            indexed_files=pw.apply(lambda: [], ),  # TODO: Get from list_documents
+            total_tokens=pw.apply(lambda: 0, ),  
+            indexed_files=pw.apply(lambda: [], ),  
             embeddings_model=pw.apply(lambda: config.EMBEDDING_MODEL, ),
             llm_model=pw.apply(lambda: config.LLM_MODEL, ),
             vector_db_stats=pw.apply(
@@ -369,11 +316,7 @@ class CustomRAGRestServer:
         
         Uses BaseRAGQuestionAnswerer.list_documents which delegates to indexer.parsed_documents_query
         """
-        # Call the RAG app's list_documents method
         docs_results = self.rag_app.list_documents(query_table)
-        
-        # Transform to frontend format
-        # docs_results has column: result (list of document metadata objects)
         response = docs_results.select(
             documents=pw.apply(
                 self._format_document_list,
@@ -388,16 +331,13 @@ class CustomRAGRestServer:
         return response
     
     def _format_document_list(self, docs: Any) -> List[Dict]:
-        """Format document list to frontend structure."""
-        documents_list = []
         
-        # Handle Pathway Json type
+        documents_list = []
         if hasattr(docs, 'value'):
             docs = docs.value
         
         if isinstance(docs, list):
             for doc in docs:
-                # Each document from parsed_documents_query has metadata
                 path = doc.get("path", "unknown")
                 metadata = doc.get("metadata", {})
                 
@@ -419,44 +359,32 @@ class CustomRAGRestServer:
         
         Uses BaseRAGQuestionAnswerer.summarize_query
         """
-        # Call the RAG app's summarize_query method
         summary_results = self.rag_app.summarize_query(query_table)
-        
-        # Transform to frontend format
-        # summary_results has column: result (summarized text string)
-        # But frontend expects a list of summaries (one per input text)
         response = summary_results.select(
             summaries=pw.apply(
                 self._format_summaries,
-                pw.this.text_list,  # Original texts
-                pw.this.result,  # Summarized result
+                pw.this.text_list,  
+                pw.this.result,  
             )
         )
         
         return response
     
     def _format_summaries(self, text_list: Any, summary_result: Any) -> List[Dict]:
-        """Generate summaries for a list of texts."""
-        summaries = []
         
-        # Handle Pathway Json types
+        summaries = []
         if hasattr(text_list, 'value'):
             text_list = text_list.value
         if hasattr(summary_result, 'value'):
             summary_result = summary_result.value
-        
-        # If text_list is a list, create individual summaries
         if isinstance(text_list, list):
-            # For now, return the single summary for all texts
-            # In a real implementation, would summarize each text individually
             for idx, text in enumerate(text_list):
                 summaries.append({
                     "original_text": str(text),
                     "summary": str(summary_result) if idx == 0 else f"Summary: {str(text)[:100]}...",
-                    "tokens_used": 0  # TODO: Extract from LLM metadata
+                    "tokens_used": 0  
                 })
         else:
-            # Single text
             summaries.append({
                 "original_text": str(text_list),
                 "summary": str(summary_result),
@@ -467,14 +395,9 @@ class CustomRAGRestServer:
     
     
     def run(self):
-        """Start the custom REST server with all endpoints."""
-        # Setup document store and RAG app
+        
         self._setup_document_store()
-        
-        # Build all REST endpoints
         self._build_endpoints()
-        
-        # Run Pathway with persistence
         pw.run(
             monitoring_level=pw.MonitoringLevel.NONE,
             persistence_config=pw.persistence.Config.simple_config(
@@ -502,12 +425,10 @@ def main():
     print("\n" + "=" * 70)
     print("⏳ Starting server (this may take 30-60 seconds)...")
     print("=" * 70 + "\n")
-    
-    # Allow CORS for frontend (default: localhost:3000)
     allowed_origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "*"  # Allow all for development
+        "*"  
     ]
     
     server = CustomRAGRestServer(
