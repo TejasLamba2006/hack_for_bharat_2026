@@ -169,8 +169,7 @@ class CustomRAGRestServer:
         # Pathway expects: query (not prompt), metadata_filter (not filters)
         rag_queries = query_table.select(
             query=pw.this.prompt,  # ✅ Rename: prompt → query (Pathway expects 'query')
-            # Only add metadata_filter if filters is provided
-            metadata_filter=pw.this.filters if pw.this.filters is not None else None,  # ✅ Rename: filters → metadata_filter
+            metadata_filter=pw.this.filters,  # ✅ Rename: filters → metadata_filter
             # Note: Removed 'model' parameter - may not be supported by answer_query
             # Note: Removed 'return_context_docs' - not needed, docs are returned by default
         )
