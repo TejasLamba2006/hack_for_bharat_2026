@@ -6,8 +6,8 @@ import sys
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Callable
-import json
-from datetime import datetime
+
+pw.set_license_key("5319C6-6E8E91-36D096-DB7B21-328173-V3")
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from backend.core import config
