@@ -165,21 +165,19 @@ class CustomRAGRestServer:
         )
     
     def _handle_ask_question(self, query_table: pw.Table) -> pw.Table:
-        # ✅ CORRECT SOLUTION: Pass ALL original columns, including 'filters'
-        # Pathway's answer_query() internally expects a column called 'filters', NOT 'metadata_filter'
-        # Only rename 'prompt' to 'query' - keep 'filters' as-is
-        rag_queries = query_table.select(
-            query=pw.this.prompt,    # Rename: prompt → query
-            filters=pw.this.filters,  # Keep as 'filters' (Pathway expects this exact name!)
-        )
-        rag_responses = self.rag_app.answer_query(rag_queries)
+
+        rag_responses = self.rag_app.answer_query(query_table)
+        
+        @pw.udf
+        def extract_answer(result: pw.Json) -> str:
+            if isinstance(result, dict):
+                return result.get("response", str(result))
+            return str(result)
+        
         response = rag_responses.select(
-            answer=pw.this.result,  
-            sources=pw.apply(
-                self._format_sources,
-                pw.this.docs if hasattr(pw.this, 'docs') else pw.apply(lambda: [])
-            ),
-            tokens_used=pw.apply(lambda: 0, ),  
+            answer=extract_answer(pw.this.result),
+            sources=pw.apply(lambda: []),  # TODO: Extract from result if available
+            tokens_used=pw.apply(lambda: 0),
         )
         
         return response
