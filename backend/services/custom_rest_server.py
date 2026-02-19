@@ -284,7 +284,15 @@ class CustomRAGRestServer:
         return response
     
     def _handle_list_documents(self, query_table: pw.Table) -> pw.Table:
-        docs_results = self.rag_app.list_documents(query_table)
+        @pw.udf
+        def get_keys_as_filter(keys: pw.Json | None) -> str | None:
+            return None
+        
+        query_with_filter = query_table.select(
+            metadata_filter=get_keys_as_filter(pw.this.keys),
+        )
+        
+        docs_results = self.rag_app.list_documents(query_with_filter)
         response = docs_results.select(
             documents=pw.apply(
                 self._format_document_list,
