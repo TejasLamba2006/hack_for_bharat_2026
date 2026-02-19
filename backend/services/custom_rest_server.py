@@ -212,11 +212,15 @@ class CustomRAGRestServer:
         def default_k(k_val: int | None) -> int:
             return k_val if k_val is not None else 5
         
+        @pw.udf
+        def null_str(q: str) -> str | None:
+            return None
+        
         query_with_defaults = query_table.select(
             query=pw.this.query,
             k=default_k(pw.this.k),
-            metadata_filter=pw.apply(lambda q: None, pw.this.query),
-            filepath_globpattern=pw.apply(lambda q: None, pw.this.query),
+            metadata_filter=null_str(pw.this.query),
+            filepath_globpattern=null_str(pw.this.query),
         )
         
         retrieval_results = self.rag_app.retrieve(query_with_defaults)
