@@ -216,6 +216,42 @@ class CustomRAGRestServer:
         def null_str(q: str) -> str | None:
             return None
         
+        @pw.udf
+        def format_retrieve_results(docs: Any) -> pw.Json:
+            results_list = []
+            if hasattr(docs, 'value'):
+                docs = docs.value
+            
+            if isinstance(docs, list):
+                for idx, doc in enumerate(docs):
+                    metadata = doc.get("metadata", {})
+                    doc_path = metadata.get("path", "unknown")
+                    doc_text = doc.get("text", "")
+                    dist = doc.get("dist", 1.0)
+                    relevance = 1.0 - min(dist, 1.0) if dist else 0.0
+                    
+                    results_list.append({
+                        "document_id": f"doc_{idx}",
+                        "document_name": Path(doc_path).name if doc_path != "unknown" else "unknown",
+                        "excerpt": doc_text[:200] if doc_text else "",
+                        "relevance_score": float(relevance),
+                        "line_number": metadata.get("line_number", 0),
+                        "metadata": {
+                            "file_type": Path(doc_path).suffix.replace(".", "") if doc_path != "unknown" else "",
+                            "upload_date": metadata.get("modified_at", datetime.now().isoformat())
+                        }
+                    })
+            
+            return results_list
+        
+        @pw.udf
+        def count_results(docs: Any) -> int:
+            if hasattr(docs, 'value'):
+                docs = docs.value
+            if isinstance(docs, list):
+                return len(docs)
+            return 0
+        
         query_with_defaults = query_table.select(
             query=pw.this.query,
             k=default_k(pw.this.k),
@@ -225,46 +261,12 @@ class CustomRAGRestServer:
         
         retrieval_results = self.rag_app.retrieve(query_with_defaults)
         response = retrieval_results.select(
-            results=pw.apply(
-                self._format_retrieve_results,
-                pw.this.result
-            ),
-            total_results=pw.apply(
-                lambda docs: len(docs.value if hasattr(docs, 'value') else docs) if docs else 0,
-                pw.this.result
-            ),
+            results=format_retrieve_results(pw.this.result),
+            total_results=count_results(pw.this.result),
             search_time_ms=pw.apply(lambda r: 0, pw.this.result),  
         )
         
         return response
-    
-    def _format_retrieve_results(self, docs: Any) -> List[Dict]:
-        
-        results_list = []
-        if hasattr(docs, 'value'):
-            docs = docs.value
-        
-        if isinstance(docs, list):
-            for idx, doc in enumerate(docs):
-                metadata = doc.get("metadata", {})
-                doc_path = metadata.get("path", "unknown")
-                doc_text = doc.get("text", "")
-                dist = doc.get("dist", 1.0)
-                relevance = 1.0 - min(dist, 1.0) if dist else 0.0
-                
-                results_list.append({
-                    "document_id": f"doc_{idx}",
-                    "document_name": Path(doc_path).name if doc_path != "unknown" else "unknown",
-                    "excerpt": doc_text[:200] if doc_text else "",
-                    "relevance_score": float(relevance),
-                    "line_number": metadata.get("line_number", 0),
-                    "metadata": {
-                        "file_type": Path(doc_path).suffix.replace(".", "") if doc_path != "unknown" else "",
-                        "upload_date": metadata.get("modified_at", datetime.now().isoformat())
-                    }
-                })
-        
-        return results_list
     
     def _handle_statistics(self, query_table: pw.Table) -> pw.Table:
         response = query_table.select(
@@ -284,6 +286,36 @@ class CustomRAGRestServer:
         return response
     
     def _handle_list_documents(self, query_table: pw.Table) -> pw.Table:
+        # Define UDF for formatting document list
+        @pw.udf
+        def format_document_list(docs: Any) -> pw.Json:
+            documents_list = []
+            if hasattr(docs, 'value'):
+                docs = docs.value
+            
+            if isinstance(docs, list):
+                for doc in docs:
+                    path = doc.get("path", "unknown")
+                    metadata = doc.get("metadata", {})
+                    
+                    documents_list.append({
+                        "path": path,
+                        "size": metadata.get("size", 0),
+                        "upload_time": metadata.get("modified_at", datetime.now().isoformat()),
+                        "status": "indexed",
+                        "chunks": metadata.get("chunk_count", 0)
+                    })
+            
+            return documents_list
+        
+        @pw.udf
+        def count_documents(docs: Any) -> int:
+            if hasattr(docs, 'value'):
+                docs = docs.value
+            if isinstance(docs, list):
+                return len(docs)
+            return 0
+        
         @pw.udf
         def get_keys_as_filter(keys: pw.Json | None) -> str | None:
             return None
@@ -294,73 +326,42 @@ class CustomRAGRestServer:
         
         docs_results = self.rag_app.list_documents(query_with_filter)
         response = docs_results.select(
-            documents=pw.apply(
-                self._format_document_list,
-                pw.this.result
-            ),
-            total_count=pw.apply(
-                lambda docs: len(docs.value if hasattr(docs, 'value') else docs) if docs else 0,
-                pw.this.result
-            ),
+            documents=format_document_list(pw.this.result),
+            total_count=count_documents(pw.this.result),
         )
         
         return response
-    
-    def _format_document_list(self, docs: Any) -> List[Dict]:
-        
-        documents_list = []
-        if hasattr(docs, 'value'):
-            docs = docs.value
-        
-        if isinstance(docs, list):
-            for doc in docs:
-                path = doc.get("path", "unknown")
-                metadata = doc.get("metadata", {})
-                
-                documents_list.append({
-                    "path": path,
-                    "size": metadata.get("size", 0),
-                    "upload_time": metadata.get("modified_at", datetime.now().isoformat()),
-                    "status": "indexed",
-                    "chunks": metadata.get("chunk_count", 0)
-                })
-        
-        return documents_list
     
     def _handle_summary(self, query_table: pw.Table) -> pw.Table:
+        @pw.udf
+        def format_summaries(text_list: Any, summary_result: Any) -> pw.Json:
+            summaries = []
+            if hasattr(text_list, 'value'):
+                text_list = text_list.value
+            if hasattr(summary_result, 'value'):
+                summary_result = summary_result.value
+            if isinstance(text_list, list):
+                for idx, text in enumerate(text_list):
+                    summaries.append({
+                        "original_text": str(text),
+                        "summary": str(summary_result) if idx == 0 else f"Summary: {str(text)[:100]}...",
+                        "tokens_used": 0
+                    })
+            else:
+                summaries.append({
+                    "original_text": str(text_list),
+                    "summary": str(summary_result),
+                    "tokens_used": 0
+                })
+            
+            return summaries
+        
         summary_results = self.rag_app.summarize_query(query_table)
         response = summary_results.select(
-            summaries=pw.apply(
-                self._format_summaries,
-                pw.this.text_list,  
-                pw.this.result,  
-            )
+            summaries=format_summaries(pw.this.text_list, pw.this.result)
         )
         
         return response
-    
-    def _format_summaries(self, text_list: Any, summary_result: Any) -> List[Dict]:
-        
-        summaries = []
-        if hasattr(text_list, 'value'):
-            text_list = text_list.value
-        if hasattr(summary_result, 'value'):
-            summary_result = summary_result.value
-        if isinstance(text_list, list):
-            for idx, text in enumerate(text_list):
-                summaries.append({
-                    "original_text": str(text),
-                    "summary": str(summary_result) if idx == 0 else f"Summary: {str(text)[:100]}...",
-                    "tokens_used": 0  
-                })
-        else:
-            summaries.append({
-                "original_text": str(text_list),
-                "summary": str(summary_result),
-                "tokens_used": 0
-            })
-        
-        return summaries
     
     
     def run(self):
