@@ -199,7 +199,7 @@ class CustomRAGRestServer:
                 path = metadata.get('path', 'unknown')
                 
                 sources.append({
-                    "document_name": Path(path).name if path != 'unknown' else 'unknown',
+                    "document_name": os.path.basename(path) if path != 'unknown' else 'unknown',
                     "line_number": metadata.get('line_number', 0),
                     "excerpt": doc.get('text', '')[:300],  
                     "relevance": doc.get('reranker_score', 0.95 - idx * 0.05),  
@@ -230,15 +230,20 @@ class CustomRAGRestServer:
                     dist = doc.get("dist", 1.0)
                     relevance = 1.0 - min(dist, 1.0) if dist else 0.0
                     
+                    # Extract file extension
+                    file_ext = ""
+                    if doc_path != "unknown" and "." in doc_path:
+                        file_ext = doc_path.rsplit(".", 1)[-1]
+                    
                     results_list.append({
                         "document_id": f"doc_{idx}",
-                        "document_name": Path(doc_path).name if doc_path != "unknown" else "unknown",
+                        "document_name": os.path.basename(doc_path) if doc_path != "unknown" else "unknown",
                         "excerpt": doc_text[:200] if doc_text else "",
                         "relevance_score": float(relevance),
                         "line_number": metadata.get("line_number", 0),
                         "metadata": {
-                            "file_type": Path(doc_path).suffix.replace(".", "") if doc_path != "unknown" else "",
-                            "upload_date": metadata.get("modified_at", datetime.now().isoformat())
+                            "file_type": file_ext,
+                            "upload_date": metadata.get("modified_at", "")
                         }
                     })
             
@@ -301,7 +306,7 @@ class CustomRAGRestServer:
                     documents_list.append({
                         "path": path,
                         "size": metadata.get("size", 0),
-                        "upload_time": metadata.get("modified_at", datetime.now().isoformat()),
+                        "upload_time": metadata.get("modified_at", ""),
                         "status": "indexed",
                         "chunks": metadata.get("chunk_count", 0)
                     })
