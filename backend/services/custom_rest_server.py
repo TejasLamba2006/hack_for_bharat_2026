@@ -341,31 +341,23 @@ class CustomRAGRestServer:
     
     def _handle_summary(self, query_table: pw.Table) -> pw.Table:
         @pw.udf
-        def format_summaries(text_list: Any, summary_result: Any) -> pw.Json:
+        def format_summary(summary_result: Any) -> pw.Json:
+            # TODO: Parse actual summaries from text_list
             summaries = []
-            if hasattr(text_list, 'value'):
-                text_list = text_list.value
             if hasattr(summary_result, 'value'):
                 summary_result = summary_result.value
-            if isinstance(text_list, list):
-                for idx, text in enumerate(text_list):
-                    summaries.append({
-                        "original_text": str(text),
-                        "summary": str(summary_result) if idx == 0 else f"Summary: {str(text)[:100]}...",
-                        "tokens_used": 0
-                    })
-            else:
-                summaries.append({
-                    "original_text": str(text_list),
-                    "summary": str(summary_result),
-                    "tokens_used": 0
-                })
+            
+            summaries.append({
+                "original_text": "Input text",
+                "summary": str(summary_result),
+                "tokens_used": 0
+            })
             
             return summaries
         
         summary_results = self.rag_app.summarize_query(query_table)
         response = summary_results.select(
-            summaries=format_summaries(pw.this.text_list, pw.this.result)
+            summaries=format_summary(pw.this.result)
         )
         
         return response
