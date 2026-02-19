@@ -327,6 +327,8 @@ class CustomRAGRestServer:
         
         query_with_filter = query_table.select(
             metadata_filter=get_filter_as_metadata(pw.this.filter_keys),
+            return_status=True,
+            filepath_globpattern=None,
         )
         
         docs_results = self.rag_app.list_documents(query_with_filter)
