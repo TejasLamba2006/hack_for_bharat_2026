@@ -267,31 +267,18 @@ class CustomRAGRestServer:
         return results_list
     
     def _handle_statistics(self, query_table: pw.Table) -> pw.Table:
-        stats_results = self.rag_app.statistics(query_table)
-        response = stats_results.select(
-            total_documents=pw.apply(
-                lambda stats: stats.get('document_count', 0) if isinstance(stats, dict) else (stats.value.get('document_count', 0) if hasattr(stats, 'value') else 0),
-                pw.this.statistics
-            ),
-            total_chunks=pw.apply(
-                lambda stats: stats.get('document_count', 0) * 10 if isinstance(stats, dict) else 0,  
-                pw.this.statistics
-            ),
-            embeddings_count=pw.apply(
-                lambda stats: stats.get('document_count', 0) * 10 if isinstance(stats, dict) else 0,  
-                pw.this.statistics
-            ),
-            total_tokens=pw.apply(lambda s: 0, pw.this.statistics),
-            indexed_files=pw.apply(lambda s: [], pw.this.statistics),
-            embeddings_model=pw.apply(lambda s: config.EMBEDDING_MODEL, pw.this.statistics),
-            llm_model=pw.apply(lambda s: config.LLM_MODEL, pw.this.statistics),
-            vector_db_stats=pw.apply(
-                lambda s: {
-                    "type": "FAISS",
-                    "vector_dimension": 384 if "MiniLM" in config.EMBEDDING_MODEL else 1536
-                },
-                pw.this.statistics
-            ),
+        response = query_table.select(
+            total_documents=0,
+            total_chunks=0,
+            embeddings_count=0,
+            total_tokens=0,
+            indexed_files=[],
+            embeddings_model=config.EMBEDDING_MODEL,
+            llm_model=config.LLM_MODEL,
+            vector_db_stats={
+                "type": "FAISS",
+                "vector_dimension": 384 if "MiniLM" in config.EMBEDDING_MODEL else 1536
+            },
         )
         
         return response
