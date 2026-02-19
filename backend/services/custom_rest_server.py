@@ -165,10 +165,15 @@ class CustomRAGRestServer:
         )
     
     def _handle_ask_question(self, query_table: pw.Table) -> pw.Table:
+        @pw.udf
+        def default_model(model_val: str | None) -> str:
+            # Use default model if null is provided
+            return model_val if model_val is not None else config.LLM_MODEL
+        
         query_with_context = query_table.select(
             pw.this.prompt,
             pw.this.filters,
-            pw.this.model,
+            model=default_model(pw.this.model),
             return_context_docs=pw.apply(lambda p: True, pw.this.prompt), 
         )
         
@@ -337,7 +342,18 @@ class CustomRAGRestServer:
         return response
     
     def _handle_summary(self, query_table: pw.Table) -> pw.Table:
-        summary_results = self.rag_app.summarize_query(query_table)
+        @pw.udf
+        def default_model(model_val: str | None) -> str:
+            # Use default model if null is provided
+            return model_val if model_val is not None else config.LLM_MODEL
+        
+        # Transform query to use default model if needed
+        query_with_model = query_table.select(
+            pw.this.text_list,
+            model=default_model(pw.this.model)
+        )
+        
+        summary_results = self.rag_app.summarize_query(query_with_model)
         
         @pw.udf
         def wrap_summary_response(summary_result: Any) -> pw.Json:
