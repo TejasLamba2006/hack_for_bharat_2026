@@ -347,16 +347,9 @@ class CustomRAGRestServer:
             # Use default model if null is provided
             return model_val if model_val is not None else config.LLM_MODEL
         
-        @pw.udf
-        def extract_first_text(text_list: pw.Json) -> str:
-            # Extract first text from the JSON array
-            if isinstance(text_list, list) and len(text_list) > 0:
-                return str(text_list[0])
-            return str(text_list)
-        
-        # Transform query to match summarize_query schema (expects 'text' column)
+        # Keep text_list column name as-is (Pathway expects it internally)
         query_with_model = query_table.select(
-            text=extract_first_text(pw.this.text_list),
+            pw.this.text_list,
             model=default_model(pw.this.model)
         )
         
