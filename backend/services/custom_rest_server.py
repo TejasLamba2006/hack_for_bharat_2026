@@ -169,7 +169,7 @@ class CustomRAGRestServer:
             pw.this.prompt,
             pw.this.filters,
             pw.this.model,
-            return_context_docs=pw.apply(lambda: True), 
+            return_context_docs=pw.apply(lambda p: True, pw.this.prompt), 
         )
         
         rag_responses = self.rag_app.answer_query(query_with_context)
@@ -182,8 +182,8 @@ class CustomRAGRestServer:
         
         response = rag_responses.select(
             answer=extract_answer(pw.this.result),
-            sources=pw.apply(lambda: []),  # TODO: Extract from result if available
-            tokens_used=pw.apply(lambda: 0),
+            sources=pw.apply(lambda r: [], pw.this.result),  # TODO: Extract from result if available
+            tokens_used=pw.apply(lambda r: 0, pw.this.result),
         )
         
         return response
@@ -224,7 +224,7 @@ class CustomRAGRestServer:
                 lambda docs: len(docs.value if hasattr(docs, 'value') else docs) if docs else 0,
                 pw.this.result
             ),
-            search_time_ms=pw.apply(lambda: 0, ),  
+            search_time_ms=pw.apply(lambda r: 0, pw.this.result),  
         )
         
         return response
@@ -272,15 +272,16 @@ class CustomRAGRestServer:
                 lambda stats: stats.get('document_count', 0) * 10 if isinstance(stats, dict) else 0,  
                 pw.this.statistics
             ),
-            total_tokens=pw.apply(lambda: 0, ),  
-            indexed_files=pw.apply(lambda: [], ),  
-            embeddings_model=pw.apply(lambda: config.EMBEDDING_MODEL, ),
-            llm_model=pw.apply(lambda: config.LLM_MODEL, ),
+            total_tokens=pw.apply(lambda s: 0, pw.this.statistics),
+            indexed_files=pw.apply(lambda s: [], pw.this.statistics),
+            embeddings_model=pw.apply(lambda s: config.EMBEDDING_MODEL, pw.this.statistics),
+            llm_model=pw.apply(lambda s: config.LLM_MODEL, pw.this.statistics),
             vector_db_stats=pw.apply(
-                lambda: {
+                lambda s: {
                     "type": "FAISS",
                     "vector_dimension": 384 if "MiniLM" in config.EMBEDDING_MODEL else 1536
                 },
+                pw.this.statistics
             ),
         )
         
