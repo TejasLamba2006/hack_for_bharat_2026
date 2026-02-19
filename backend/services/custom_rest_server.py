@@ -208,10 +208,12 @@ class CustomRAGRestServer:
         return sources
     
     def _handle_retrieve(self, query_table: pw.Table) -> pw.Table:
-        # Apply default value for k if None
+        # Apply default value for k if None, and add required columns
         query_with_defaults = query_table.select(
             query=pw.this.query,
-            k=pw.apply(lambda k_val: k_val if k_val is not None else 5, pw.this.k)
+            k=pw.apply(lambda k_val: k_val if k_val is not None else 5, pw.this.k),
+            metadata_filter=pw.apply(lambda q: None, pw.this.query),
+            filepath_globpattern=pw.apply(lambda q: None, pw.this.query),
         )
         
         retrieval_results = self.rag_app.retrieve(query_with_defaults)
