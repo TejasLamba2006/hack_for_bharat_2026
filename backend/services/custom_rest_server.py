@@ -165,8 +165,14 @@ class CustomRAGRestServer:
         )
     
     def _handle_ask_question(self, query_table: pw.Table) -> pw.Table:
-
-        rag_responses = self.rag_app.answer_query(query_table)
+        query_with_context = query_table.select(
+            pw.this.prompt,
+            pw.this.filters,
+            pw.this.model,
+            return_context_docs=pw.apply(lambda: True), 
+        )
+        
+        rag_responses = self.rag_app.answer_query(query_with_context)
         
         @pw.udf
         def extract_answer(result: pw.Json) -> str:
