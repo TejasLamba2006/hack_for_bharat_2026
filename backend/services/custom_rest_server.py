@@ -165,13 +165,12 @@ class CustomRAGRestServer:
         )
     
     def _handle_ask_question(self, query_table: pw.Table) -> pw.Table:
-        # Map your API fields to Pathway's expected field names
-        # Pathway expects: query (not prompt), metadata_filter (not filters)
+        # ✅ CORRECT SOLUTION: Pass ALL original columns, including 'filters'
+        # Pathway's answer_query() internally expects a column called 'filters', NOT 'metadata_filter'
+        # Only rename 'prompt' to 'query' - keep 'filters' as-is
         rag_queries = query_table.select(
-            query=pw.this.prompt,  # ✅ Rename: prompt → query (Pathway expects 'query')
-            metadata_filter=pw.this.filters,  # ✅ Rename: filters → metadata_filter
-            # Note: Removed 'model' parameter - may not be supported by answer_query
-            # Note: Removed 'return_context_docs' - not needed, docs are returned by default
+            query=pw.this.prompt,    # Rename: prompt → query
+            filters=pw.this.filters,  # Keep as 'filters' (Pathway expects this exact name!)
         )
         rag_responses = self.rag_app.answer_query(rag_queries)
         response = rag_responses.select(
