@@ -157,12 +157,14 @@ class CustomRAGRestServer:
             handler=self._handle_list_documents,
             methods=("POST",),
         )
-        self.serve(
-            route="/v1/pw_ai_summary",
-            schema=SummarizeSchema,
-            handler=self._handle_summary,
-            methods=("POST",),
-        )
+        # NOTE: Summary endpoint disabled due to Pathway engine crash with pw.Json schema
+        # TODO: Re-enable when Pathway fixes TryFromIntError with JSON arrays
+        # self.serve(
+        #     route="/v1/pw_ai_summary",
+        #     schema=SummarizeSchema,
+        #     handler=self._handle_summary,
+        #     methods=("POST",),
+        # )
     
     def _handle_ask_question(self, query_table: pw.Table) -> pw.Table:
         @pw.udf
@@ -395,7 +397,7 @@ def main():
     print(f"   POST /v1/retrieve          - Search documents")
     print(f"   POST /v1/statistics        - System statistics")
     print(f"   POST /v1/pw_list_documents - List all documents")
-    print(f"   POST /v1/pw_ai_summary     - Summarize text")
+    print(f"   # POST /v1/pw_ai_summary   - Summarize text [DISABLED - Pathway bug]")
     print(f"\n🔒 CORS: Enabled for all origins (*)")
     print("\n" + "=" * 70)
     print("⏳ Starting server (this may take 30-60 seconds)...")
