@@ -23,7 +23,7 @@ class RetrieveSchema(pw.Schema):
 
 
 class ListDocumentsSchema(pw.Schema):
-    keys: pw.Json | None
+    filter_keys: pw.Json | None
 
 
 class SummarizeSchema(pw.Schema):
@@ -322,11 +322,11 @@ class CustomRAGRestServer:
             return 0
         
         @pw.udf
-        def get_keys_as_filter(keys: pw.Json | None) -> str | None:
+        def get_filter_as_metadata(filter_keys: pw.Json | None) -> str | None:
             return None
         
         query_with_filter = query_table.select(
-            metadata_filter=get_keys_as_filter(pw.this.keys),
+            metadata_filter=get_filter_as_metadata(pw.this.filter_keys),
         )
         
         docs_results = self.rag_app.list_documents(query_with_filter)
