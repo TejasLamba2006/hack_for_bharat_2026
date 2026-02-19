@@ -208,10 +208,13 @@ class CustomRAGRestServer:
         return sources
     
     def _handle_retrieve(self, query_table: pw.Table) -> pw.Table:
-        # Apply default value for k if None, and add required columns
+        @pw.udf
+        def default_k(k_val: int | None) -> int:
+            return k_val if k_val is not None else 5
+        
         query_with_defaults = query_table.select(
             query=pw.this.query,
-            k=pw.apply(lambda k_val: k_val if k_val is not None else 5, pw.this.k),
+            k=default_k(pw.this.k),
             metadata_filter=pw.apply(lambda q: None, pw.this.query),
             filepath_globpattern=pw.apply(lambda q: None, pw.this.query),
         )
