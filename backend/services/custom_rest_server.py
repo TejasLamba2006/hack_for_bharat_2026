@@ -175,15 +175,22 @@ class CustomRAGRestServer:
         rag_responses = self.rag_app.answer_query(query_with_context)
         
         @pw.udf
-        def extract_answer(result: pw.Json) -> str:
-            if isinstance(result, dict):
-                return result.get("response", str(result))
-            return str(result)
+        def format_answer_response(rag_result: pw.Json) -> pw.Json:
+            # Extract answer from the RAG result
+            answer_text = ""
+            if isinstance(rag_result, dict):
+                answer_text = rag_result.get("response", str(rag_result))
+            else:
+                answer_text = str(rag_result)
+            
+            return {
+                "answer": answer_text,
+                "sources": [],  # TODO: Extract from result if available
+                "tokens_used": 0
+            }
         
         response = rag_responses.select(
-            answer=extract_answer(pw.this.result),
-            sources=pw.apply(lambda r: [], pw.this.result),  # TODO: Extract from result if available
-            tokens_used=pw.apply(lambda r: 0, pw.this.result),
+            result=format_answer_response(pw.this.result)
         )
         
         return response
@@ -216,8 +223,17 @@ class CustomRAGRestServer:
         def null_str(q: str) -> str | None:
             return None
         
+        query_with_defaults = query_table.select(
+            query=pw.this.query,
+            k=default_k(pw.this.k),
+            metadata_filter=null_str(pw.this.query),
+            filepath_globpattern=null_str(pw.this.query),
+        )
+        
+        retrieval_results = self.rag_app.retrieve(query_with_defaults)
+        
         @pw.udf
-        def format_retrieve_results(docs: Any) -> pw.Json:
+        def wrap_retrieve_response(docs: Any) -> pw.Json:
             results_list = []
             if hasattr(docs, 'value'):
                 docs = docs.value
@@ -230,7 +246,6 @@ class CustomRAGRestServer:
                     dist = doc.get("dist", 1.0)
                     relevance = 1.0 - min(dist, 1.0) if dist else 0.0
                     
-                    # Extract file extension
                     file_ext = ""
                     if doc_path != "unknown" and "." in doc_path:
                         file_ext = doc_path.rsplit(".", 1)[-1]
@@ -247,53 +262,52 @@ class CustomRAGRestServer:
                         }
                     })
             
-            return results_list
+            return {
+                "results": results_list,
+                "total_results": len(results_list),
+                "search_time_ms": 0
+            }
         
-        @pw.udf
-        def count_results(docs: Any) -> int:
-            if hasattr(docs, 'value'):
-                docs = docs.value
-            if isinstance(docs, list):
-                return len(docs)
-            return 0
-        
-        query_with_defaults = query_table.select(
-            query=pw.this.query,
-            k=default_k(pw.this.k),
-            metadata_filter=null_str(pw.this.query),
-            filepath_globpattern=null_str(pw.this.query),
-        )
-        
-        retrieval_results = self.rag_app.retrieve(query_with_defaults)
         response = retrieval_results.select(
-            results=format_retrieve_results(pw.this.result),
-            total_results=count_results(pw.this.result),
-            search_time_ms=pw.apply(lambda r: 0, pw.this.result),  
+            result=wrap_retrieve_response(pw.this.result)
         )
         
         return response
     
     def _handle_statistics(self, query_table: pw.Table) -> pw.Table:
         response = query_table.select(
-            total_documents=0,
-            total_chunks=0,
-            embeddings_count=0,
-            total_tokens=0,
-            indexed_files=[],
-            embeddings_model=config.EMBEDDING_MODEL,
-            llm_model=config.LLM_MODEL,
-            vector_db_stats={
-                "type": "FAISS",
-                "vector_dimension": 384 if "MiniLM" in config.EMBEDDING_MODEL else 1536
-            },
+            result={
+                "total_documents": 0,
+                "total_chunks": 0,
+                "embeddings_count": 0,
+                "total_tokens": 0,
+                "indexed_files": [],
+                "embeddings_model": config.EMBEDDING_MODEL,
+                "llm_model": config.LLM_MODEL,
+                "vector_db_stats": {
+                    "type": "FAISS",
+                    "vector_dimension": 384 if "MiniLM" in config.EMBEDDING_MODEL else 1536
+                }
+            }
         )
         
         return response
     
     def _handle_list_documents(self, query_table: pw.Table) -> pw.Table:
-        # Define UDF for formatting document list
         @pw.udf
-        def format_document_list(docs: Any) -> pw.Json:
+        def get_filter_as_metadata(filter_keys: pw.Json | None) -> str | None:
+            return None
+        
+        query_with_filter = query_table.select(
+            metadata_filter=get_filter_as_metadata(pw.this.filter_keys),
+            return_status=True,
+            filepath_globpattern=None,
+        )
+        
+        docs_results = self.rag_app.list_documents(query_with_filter)
+        
+        @pw.udf
+        def wrap_documents_response(docs: Any) -> pw.Json:
             documents_list = []
             if hasattr(docs, 'value'):
                 docs = docs.value
@@ -311,38 +325,22 @@ class CustomRAGRestServer:
                         "chunks": metadata.get("chunk_count", 0)
                     })
             
-            return documents_list
+            return {
+                "documents": documents_list,
+                "total_count": len(documents_list)
+            }
         
-        @pw.udf
-        def count_documents(docs: Any) -> int:
-            if hasattr(docs, 'value'):
-                docs = docs.value
-            if isinstance(docs, list):
-                return len(docs)
-            return 0
-        
-        @pw.udf
-        def get_filter_as_metadata(filter_keys: pw.Json | None) -> str | None:
-            return None
-        
-        query_with_filter = query_table.select(
-            metadata_filter=get_filter_as_metadata(pw.this.filter_keys),
-            return_status=True,
-            filepath_globpattern=None,
-        )
-        
-        docs_results = self.rag_app.list_documents(query_with_filter)
         response = docs_results.select(
-            documents=format_document_list(pw.this.result),
-            total_count=count_documents(pw.this.result),
+            result=wrap_documents_response(pw.this.result)
         )
         
         return response
     
     def _handle_summary(self, query_table: pw.Table) -> pw.Table:
+        summary_results = self.rag_app.summarize_query(query_table)
+        
         @pw.udf
-        def format_summary(summary_result: Any) -> pw.Json:
-            # TODO: Parse actual summaries from text_list
+        def wrap_summary_response(summary_result: Any) -> pw.Json:
             summaries = []
             if hasattr(summary_result, 'value'):
                 summary_result = summary_result.value
@@ -353,11 +351,10 @@ class CustomRAGRestServer:
                 "tokens_used": 0
             })
             
-            return summaries
+            return {"summaries": summaries}
         
-        summary_results = self.rag_app.summarize_query(query_table)
         response = summary_results.select(
-            summaries=format_summary(pw.this.result)
+            result=wrap_summary_response(pw.this.result)
         )
         
         return response
