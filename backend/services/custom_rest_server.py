@@ -184,15 +184,16 @@ class CustomRAGRestServer:
         @pw.udf
         def format_answer_response(rag_result: pw.Json) -> pw.Json:
             # Extract answer from the RAG result
+            # Simplified to avoid Pathway engine crash with nested JSON arrays
             answer_text = ""
             if isinstance(rag_result, dict):
                 answer_text = rag_result.get("response", str(rag_result))
             else:
                 answer_text = str(rag_result)
             
+            # Return simple structure without nested arrays to avoid TryFromIntError
             return {
                 "answer": answer_text,
-                "sources": [],  # TODO: Extract from result if available
                 "tokens_used": 0
             }
         
