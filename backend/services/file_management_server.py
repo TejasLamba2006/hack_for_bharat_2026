@@ -437,7 +437,8 @@ def proxy_ai_answer():
             headers={'Content-Type': 'application/json'},
             timeout=60
         )
-        return jsonify(response.json()), response.status_code
+        # Return the text response directly, let Flask handle it
+        return response.text, response.status_code, {'Content-Type': 'application/json'}
     except requests.exceptions.RequestException as e:
         return jsonify({
             "error": str(e),
@@ -484,7 +485,7 @@ def proxy_retrieve():
             headers={'Content-Type': 'application/json'},
             timeout=30
         )
-        return jsonify(response.json()), response.status_code
+        return response.text, response.status_code, {'Content-Type': 'application/json'}
     except requests.exceptions.RequestException as e:
         return jsonify({
             "error": str(e),
@@ -492,44 +493,7 @@ def proxy_retrieve():
         }), 503
 
 
-@app.route('/v1/statistics', methods=['POST', 'OPTIONS'])
-def proxy_statistics():
-    """Get system statistics
-    ---
-    tags:
-      - RAG (Proxied)
-    responses:
-      200:
-        description: System statistics
-        schema:
-          type: object
-          properties:
-            total_documents:
-              type: integer
-            total_chunks:
-              type: integer
-            index_status:
-              type: string
-      503:
-        description: Failed to connect to Pathway server
-    """
-    if request.method == 'OPTIONS':
-        return '', 200
-    
-    try:
-        response = requests.post(
-            f"{PATHWAY_SERVER}/v1/statistics",
-            json=request.json if request.json else {},
-            headers={'Content-Type': 'application/json'},
-            timeout=10
-        )
-        return jsonify(response.json()), response.status_code
-    except requests.exceptions.RequestException as e:
-        return jsonify({
-            "error": str(e),
-            "message": "Failed to connect to Pathway RAG server"
-        }), 503
-
+# Note: /v1/statistics endpoint removed - not available in QASummaryRestServer
 
 @app.route('/v1/pw_list_documents', methods=['POST', 'OPTIONS'])
 def proxy_list_documents():
@@ -564,7 +528,7 @@ def proxy_list_documents():
             headers={'Content-Type': 'application/json'},
             timeout=10
         )
-        return jsonify(response.json()), response.status_code
+        return response.text, response.status_code, {'Content-Type': 'application/json'}
     except requests.exceptions.RequestException as e:
         return jsonify({
             "error": str(e),
@@ -606,7 +570,7 @@ def proxy_summary():
             headers={'Content-Type': 'application/json'},
             timeout=60
         )
-        return jsonify(response.json()), response.status_code
+        return response.text, response.status_code, {'Content-Type': 'application/json'}
     except requests.exceptions.RequestException as e:
         return jsonify({
             "error": str(e),
@@ -625,13 +589,13 @@ if __name__ == "__main__":
     print("\n📡 Available Endpoints:")
     print("   POST /v1/pw_ai_answer      - Ask questions (proxied)")
     print("   POST /v1/retrieve          - Vector search (proxied)")
-    print("   POST /v1/statistics        - Get stats (proxied)")
     print("   POST /v1/pw_list_documents - List docs (proxied)")
     print("   POST /v1/pw_ai_summary     - Summarize (proxied)")
     print("   POST /v1/upload            - Upload file (direct)")
     print("   POST /v1/delete            - Delete file (direct)")
     print("   GET  /v1/files             - List files (direct)")
     print("   GET  /health               - Health check")
+    print("   GET  /docs                 - Swagger UI")
     print("\n💡 Frontend Integration:")
     print("   • Point ALL requests to http://207.244.225.17:9001")
     print("   • No CORS issues - single origin!")
