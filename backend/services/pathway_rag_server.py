@@ -24,6 +24,9 @@ from backend.core.config import (
     CHUNK_SIZE
 )
 
+# Import custom table-aware parser
+from backend.services.table_parser import create_table_aware_parser
+
 if PATHWAY_LICENSE_KEY:
     pw.set_license_key(PATHWAY_LICENSE_KEY)
 
@@ -188,7 +191,9 @@ def main():
         retry_strategy=pw.udfs.ExponentialBackoffRetryStrategy(max_retries=3)
     )
     
-    parser = parsers.UnstructuredParser()
+    # Use custom table-aware parser for enhanced table extraction
+    parser = create_table_aware_parser()
+    print("📊 Using TableAwareParser for enhanced table extraction")
     
     text_splitter = splitters.TokenCountSplitter(
         max_tokens=CHUNK_SIZE,
@@ -215,14 +220,16 @@ def main():
         indexer=doc_store,
         search_topk=TOP_K,
         prompt_template=(
-            "Use the context below to answer the question.\n\n"
+            "Use the context below to answer the question. The context may include tables in markdown format.\n\n"
             "Context:\n{context}\n\n"
             "Question: {query}\n\n"
             "Answer the question in detail based on the provided context. "
+            "If you reference data from tables, preserve the table structure in your response using markdown table format. "
             "Include citations in the format [1], [2], etc. that correspond to the document snippets used. "
             "Each citation number should map to a specific piece of information from the context. "
             "If the context doesn't have enough information, say so clearly.\n\n"
-            "Important: Add citations [number] after each claim or fact you state."
+            "Important: Add citations [number] after each claim or fact you state. "
+            "When presenting tabular data, use markdown table format for clarity."
         )
     )
     
