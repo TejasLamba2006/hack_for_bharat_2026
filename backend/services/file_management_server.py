@@ -404,9 +404,9 @@ def proxy_ai_answer():
         schema:
           type: object
           required:
-            - query
+            - prompt
           properties:
-            query:
+            prompt:
               type: string
               example: "What is the main topic of the documents?"
               description: The question to ask
