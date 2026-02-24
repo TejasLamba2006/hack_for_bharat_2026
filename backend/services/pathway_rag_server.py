@@ -8,7 +8,7 @@ import pathway as pw
 from pathway.xpacks.llm import embedders, llms, parsers, splitters
 from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
 from pathway.xpacks.llm.vector_store import VectorStoreServer
-import os
+from pathway.xpacks.llm.servers import QASummaryRestServer
 import sys
 from pathlib import Path
 
@@ -130,9 +130,10 @@ def main():
     
     # Build and run the server
     # This creates a REST server with all RAG endpoints
-    rag_server = rag_app.build_server(
+    rag_server =  QASummaryRestServer(
         host=SERVER_HOST,
-        port=SERVER_PORT
+        port=SERVER_PORT,
+        rag_question_answerer=rag_app
     )
     
     # Run with persistent cache
