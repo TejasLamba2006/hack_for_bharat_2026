@@ -231,7 +231,7 @@ def main():
     )
     
     # Get the webserver instance to add custom endpoints
-    webserver = rag_server._webserver
+    webserver = rag_server.webserver
     
     # Register custom file management endpoints
     serve_endpoint(
