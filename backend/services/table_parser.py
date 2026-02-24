@@ -4,15 +4,15 @@ Extracts tables from PDFs and documents while preserving structure
 """
 
 import io
-from typing import Any
+from typing import Any, Callable
 import pathway as pw
-from pathway.xpacks.llm.parsers import ParseUnstructured
+from pathway.xpacks.llm.parsers import UnstructuredParser
 import pdfplumber
 import pandas as pd
 from tabulate import tabulate
 
 
-class TableAwareParser(ParseUnstructured):
+class TableAwareParser(UnstructuredParser):
     """
     Custom parser that extracts tables from documents and formats them as markdown.
     Extends Pathway's UnstructuredParser with enhanced table extraction.
@@ -20,26 +20,41 @@ class TableAwareParser(ParseUnstructured):
     
     def __init__(
         self,
-        mode: str = "elements",
-        post_processors: list | None = None,
-        **unstructured_kwargs: Any
+        chunking_mode: str = "elements",
+        partition_kwargs: dict | None = None,
+        post_processors: list[Callable] | None = None,
+        chunking_kwargs: dict | None = None,
+        cache_strategy: Any = None
     ):
         """
         Initialize the table-aware parser.
         
         Args:
-            mode: Parsing mode ('single', 'elements', or 'paged')
-            post_processors: List of post-processing functions
-            **unstructured_kwargs: Additional arguments for Unstructured parser
+            chunking_mode: Mode used to chunk the document ('single', 'elements', 'paged', 'basic', 'by_title')
+            partition_kwargs: Extra kwargs to be passed to unstructured.io's partition function
+            post_processors: List of callables that will be applied to all extracted texts
+            chunking_kwargs: Extra kwargs to be passed to unstructured.io's chunk_elements or chunk_by_title function
+            cache_strategy: Cache strategy for the parser
         """
-        # Configure Unstructured to extract tables
-        if "strategy" not in unstructured_kwargs:
-            unstructured_kwargs["strategy"] = "hi_res"  # High resolution for better table detection
+        # Configure partition_kwargs for better table extraction
+        if partition_kwargs is None:
+            partition_kwargs = {}
         
-        if "infer_table_structure" not in unstructured_kwargs:
-            unstructured_kwargs["infer_table_structure"] = True  # Enable table structure inference
+        # Set high-resolution strategy for better table detection
+        if "strategy" not in partition_kwargs:
+            partition_kwargs["strategy"] = "hi_res"
         
-        super().__init__(mode=mode, post_processors=post_processors, **unstructured_kwargs)
+        # Enable table structure inference
+        if "infer_table_structure" not in partition_kwargs:
+            partition_kwargs["infer_table_structure"] = True
+        
+        super().__init__(
+            chunking_mode=chunking_mode,
+            partition_kwargs=partition_kwargs,
+            post_processors=post_processors,
+            chunking_kwargs=chunking_kwargs or {},
+            cache_strategy=cache_strategy
+        )
         
     @staticmethod
     def extract_tables_with_pdfplumber(file_bytes: bytes) -> list[dict]:
@@ -108,7 +123,7 @@ class TableAwareParser(ParseUnstructured):
         
         Args:
             contents: Document content as bytes
-            **kwargs: Additional arguments (e.g., metadata)
+            **kwargs: Additional arguments (e.g., metadata, chunking_mode, partition_kwargs)
             
         Returns:
             List of tuples (text, metadata) for each parsed chunk
@@ -145,7 +160,8 @@ class TableAwareParser(ParseUnstructured):
                     
                     parsed_results.append((table_text, table_metadata))
                     
-                print(f"✅ Extracted {len(tables)} tables from {file_path}")
+                if tables:
+                    print(f"✅ Extracted {len(tables)} tables from {file_path}")
                 
             except Exception as e:
                 print(f"⚠️  Table extraction fallback failed: {e}")
@@ -158,12 +174,13 @@ def create_table_aware_parser(**kwargs) -> TableAwareParser:
     Factory function to create a table-aware parser.
     
     Args:
-        **kwargs: Additional configuration for the parser
+        **kwargs: Additional configuration for the parser (chunking_mode, partition_kwargs, etc.)
         
     Returns:
         Configured TableAwareParser instance
     """
-    return TableAwareParser(
-        mode="elements",  # Parse document into elements for better structure
-        **kwargs
-    )
+    # Set default chunking_mode if not provided
+    if "chunking_mode" not in kwargs:
+        kwargs["chunking_mode"] = "elements"  # Parse document into elements for better structure
+    
+    return TableAwareParser(**kwargs)
