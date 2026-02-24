@@ -1,18 +1,14 @@
-"""
-Unified Pathway RAG Server
-Combines document indexing, vector search, and LLM chat in a single server
-Uses Pathway's BaseRAGQuestionAnswerer for complete RAG pipeline
-"""
-
 import pathway as pw
 from pathway.xpacks.llm import embedders, llms, parsers, splitters
 from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
 from pathway.xpacks.llm.vector_store import VectorStoreServer
-from pathway.xpacks.llm.servers import QASummaryRestServer
 import sys
+import os
+import base64
+import datetime
 from pathlib import Path
+from typing import Callable
 
-# Import config
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from backend.core.config import (
     PATHWAY_LICENSE_KEY,
@@ -27,42 +23,161 @@ from backend.core.config import (
     CHUNK_SIZE
 )
 
-# Set Pathway license key
 if PATHWAY_LICENSE_KEY:
     pw.set_license_key(PATHWAY_LICENSE_KEY)
 
+# Schemas for custom endpoints
+class UploadFileSchema(pw.Schema):
+    filename: str
+    content: str  # base64 encoded file content
+    
+class DeleteFileSchema(pw.Schema):
+    filename: str
+
+def serve_endpoint(
+    webserver: pw.io.http.PathwayWebserver,
+    route: str,
+    schema: type[pw.Schema],
+    handler: Callable[[pw.Table], pw.Table],
+    **kwargs
+):
+    """Helper to register custom REST endpoints"""
+    queries, writer = pw.io.http.rest_connector(
+        webserver=webserver,
+        schema=schema,
+        route=route,
+        **kwargs
+    )
+    responses = handler(queries)
+    writer(responses)
+
+
+def handle_upload_file(query_table: pw.Table) -> pw.Table:
+    """Handle file upload requests"""
+    @pw.udf
+    def save_file(filename: str, content: str) -> pw.Json:
+        try:
+            # Ensure data_room directory exists
+            os.makedirs(DATA_DIRECTORY, exist_ok=True)
+            
+            # Decode base64 content
+            file_data = base64.b64decode(content)
+            
+            # Save file to data_room
+            file_path = os.path.join(DATA_DIRECTORY, filename)
+            with open(file_path, 'wb') as f:
+                f.write(file_data)
+            
+            return {
+                "success": True,
+                "message": f"File '{filename}' uploaded successfully",
+                "path": file_path,
+                "size": len(file_data),
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to upload file: {str(e)}"
+            }
+    
+    response = query_table.select(
+        result=save_file(pw.this.filename, pw.this.content)
+    )
+    return response
+
+
+def handle_delete_file(query_table: pw.Table) -> pw.Table:
+    """Handle file deletion requests"""
+    @pw.udf
+    def delete_file(filename: str) -> pw.Json:
+        try:
+            file_path = os.path.join(DATA_DIRECTORY, filename)
+            
+            if not os.path.exists(file_path):
+                return {
+                    "success": False,
+                    "message": f"File '{filename}' not found"
+                }
+            
+            os.remove(file_path)
+            
+            return {
+                "success": True,
+                "message": f"File '{filename}' deleted successfully",
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to delete file: {str(e)}"
+            }
+    
+    response = query_table.select(
+        result=delete_file(pw.this.filename)
+    )
+    return response
+
+
+def handle_list_files(query_table: pw.Table) -> pw.Table:
+    """List all files in data_room with metadata"""
+    @pw.udf
+    def list_files() -> pw.Json:
+        try:
+            files = []
+            
+            if not os.path.exists(DATA_DIRECTORY):
+                return {"files": [], "total_count": 0}
+            
+            for filename in os.listdir(DATA_DIRECTORY):
+                file_path = os.path.join(DATA_DIRECTORY, filename)
+                
+                if os.path.isfile(file_path):
+                    stat = os.stat(file_path)
+                    files.append({
+                        "filename": filename,
+                        "path": file_path,
+                        "size": stat.st_size,
+                        "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                        "modified": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "extension": os.path.splitext(filename)[1]
+                    })
+            
+            # Sort by modification time (newest first)
+            files.sort(key=lambda x: x["modified"], reverse=True)
+            
+            return {
+                "files": files,
+                "total_count": len(files),
+                "directory": DATA_DIRECTORY,
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "files": [],
+                "total_count": 0
+            }
+    
+    response = query_table.select(
+        result=list_files()
+    )
+    return response
+
+
 def main():
-    """
-    Initialize and run unified RAG server.
-    
-    Automatically exposes REST endpoints:
-    - POST /v1/pw_ai_answer - Answer questions using RAG (LLM + retrieval)
-    - POST /v1/retrieve - Vector similarity search only
-    - POST /v1/statistics - Server statistics
-    - POST /v1/pw_list_documents - List indexed documents
-    - POST /v1/pw_ai_summary - Summarize documents
-    
-    Features:
-    - Automatic CORS handling
-    - Real-time document indexing from filesystem
-    - Persistent cache for embeddings
-    - LLM-powered question answering
-    - Source attribution
-    """
-    
     print("=" * 70)
-    print("🚀 Pathway Unified RAG Server")
+    print("🚀 Pathway Enhanced RAG Server")
     print("=" * 70)
     
-    # Configure embedder (sentence-transformers - runs locally)
-    print(f"\n📦 Loading embedder: {EMBEDDING_MODEL}")
+    # Setup components
     embedder = embedders.SentenceTransformerEmbedder(
         model=EMBEDDING_MODEL,
         call_kwargs={"show_progress_bar": False}
     )
     
-    # Configure LLM (OpenRouter via Pathway's OpenAIChat)
-    print(f"🤖 Configuring LLM: {LLM_MODEL}")
     llm_chat = llms.OpenAIChat(
         model=LLM_MODEL,
         api_key=OPENROUTER_API_KEY,
@@ -72,16 +187,13 @@ def main():
         retry_strategy=pw.udfs.ExponentialBackoffRetryStrategy(max_retries=3)
     )
     
-    # Configure parser for multiple document types
     parser = parsers.UnstructuredParser()
     
-    # Configure text splitter
     text_splitter = splitters.TokenCountSplitter(
         max_tokens=CHUNK_SIZE,
-        encoding_name="cl100k_base"  # OpenAI tokenizer
+        encoding_name="cl100k_base" 
     )
     
-    # Configure filesystem data source
     print(f"📂 Monitoring directory: {DATA_DIRECTORY}")
     data_source = pw.io.fs.read(
         DATA_DIRECTORY,
@@ -90,17 +202,13 @@ def main():
         with_metadata=True
     )
     
-    # Create document indexing pipeline
-    print(f"🔧 Building vector store...")
     doc_store = VectorStoreServer(
         data_source,
         embedder=embedder,
         splitter=text_splitter,
         parser=parser
     )
-    
-    # Create RAG question answerer (combines vector search + LLM)
-    print(f"🧠 Initializing RAG pipeline...")
+
     rag_app = BaseRAGQuestionAnswerer(
         llm=llm_chat,
         indexer=doc_store,
@@ -114,30 +222,60 @@ def main():
         )
     )
     
-    print(f"\n🌐 Starting server at http://{SERVER_HOST}:{SERVER_PORT}")
-    print(f"\n📡 Available endpoints:")
-    print(f"   POST http://{SERVER_HOST}:{SERVER_PORT}/v1/pw_ai_answer")
-    print(f"   POST http://{SERVER_HOST}:{SERVER_PORT}/v1/retrieve")
-    print(f"   POST http://{SERVER_HOST}:{SERVER_PORT}/v1/statistics")
-    print(f"   POST http://{SERVER_HOST}:{SERVER_PORT}/v1/pw_list_documents")
-    print(f"   POST http://{SERVER_HOST}:{SERVER_PORT}/v1/pw_ai_summary")
-    print(f"\n✅ CORS enabled for all origins")
-    print(f"💾 Cache enabled at ./Cache")
-    print(f"\n" + "=" * 70)
-    print("⏳ Indexing documents and starting API server...")
-    print("   This may take 30-60 seconds on first run")
-    print("=" * 70 + "\n")
-    
-    # Build and run the server
-    # This creates a REST server with all RAG endpoints
-    rag_server =  QASummaryRestServer(
+    # Create webserver with CORS enabled
+    webserver = pw.io.http.PathwayWebserver(
         host=SERVER_HOST,
         port=SERVER_PORT,
-        rag_question_answerer=rag_app
+        with_cors=True
     )
     
-    # Run with persistent cache
-    rag_server.run(
+    # Register built-in RAG endpoints
+    rag_app.pw_ai_answer(webserver)
+    rag_app.retrieve(webserver)
+    rag_app.statistics(webserver)
+    rag_app.pw_list_documents(webserver)
+    
+    # Register custom file management endpoints
+    serve_endpoint(
+        webserver=webserver,
+        route="/v1/upload",
+        schema=UploadFileSchema,
+        handler=handle_upload_file,
+        methods=("POST",)
+    )
+    
+    serve_endpoint(
+        webserver=webserver,
+        route="/v1/delete",
+        schema=DeleteFileSchema,
+        handler=handle_delete_file,
+        methods=("POST",)
+    )
+    
+    serve_endpoint(
+        webserver=webserver,
+        route="/v1/files",
+        schema=pw.schema_from_types(),
+        handler=handle_list_files,
+        methods=("GET", "POST")
+    )
+    
+    print(f"\n🌐 Server starting at http://{SERVER_HOST}:{SERVER_PORT}")
+    print("🔒 CORS: Enabled")
+    print("\n📡 Available Endpoints:")
+    print("   POST /v1/pw_ai_answer      - Ask questions (RAG)")
+    print("   POST /v1/retrieve          - Vector search")
+    print("   POST /v1/statistics        - Get stats")
+    print("   POST /v1/pw_list_documents - List indexed docs")
+    print("   POST /v1/upload            - Upload file")
+    print("   POST /v1/delete            - Delete file")
+    print("   POST /v1/files             - List files with metadata")
+    print("=" * 70)
+    print("\n⏳ Starting server (may take 30-60 seconds)...\n")
+    
+    # Run with cache
+    pw.run(
+        monitoring_level=pw.MonitoringLevel.NONE,
         with_cache=True,
         cache_backend=pw.persistence.Backend.filesystem("./Cache")
     )
