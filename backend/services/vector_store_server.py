@@ -41,6 +41,23 @@ def main():
     - Support for PDF, TXT, DOCX, HTML files
     """
     
+    # Configure embedder (sentence-transformers)
+    embedder = embedders.SentenceTransformerEmbedder(
+        model=EMBEDDING_MODEL,
+        call_kwargs={"show_progress_bar": False}
+    )
+    
+    # Configure parser for multiple document types
+    parser = parsers.ParseUnstructured()
+    
+    # Configure filesystem data source
+    data_source = pw.io.fs.read(
+        DATA_DIRECTORY,
+        format="binary",
+        mode="streaming",
+        with_metadata=True
+    )
+    
     print(f"📂 Indexing documents from: {DATA_DIRECTORY}")
     print(f"🔧 Using embedder: {EMBEDDING_MODEL}")
     print(f"💾 Cache directory: ./Cache")

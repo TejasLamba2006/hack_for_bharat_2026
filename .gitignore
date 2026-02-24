@@ -12,7 +12,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+
 lib64/
 parts/
 sdist/
@@ -48,6 +48,9 @@ cache/
 # Logs
 *.log
 logs/
+
+# Research & Ideas
+ideas/
 
 # Output
 ingestion_out.json
