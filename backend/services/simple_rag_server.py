@@ -6,7 +6,6 @@ Based on successful implementations from Pathway hackathon projects
 import pathway as pw
 from pathway.xpacks.llm import embedders, llms, parsers, splitters
 from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
-from pathway.xpacks.llm.servers import QASummaryRestServer
 from pathway.xpacks.llm.document_store import DocumentStore
 from pathway.stdlib.indexing import UsearchKnnFactory, USearchMetricKind
 import sys
@@ -106,8 +105,15 @@ class SimpleRAGServer:
             indexer=doc_store
         )
         
-        # Build and run server using Pathway's built-in method
+        # Create webserver with CORS enabled FIRST
+        webserver = pw.io.http.PathwayWebserver(
+            host=self.host,
+            port=self.port,
+            with_cors=True  # Enable CORS for cross-origin requests
+        )
+        
         print(f"🌐 Starting REST server on http://{self.host}:{self.port}")
+        print("🌍 CORS enabled for cross-origin requests")
         print("\n💡 Available Endpoints:")
         print("   POST /v1/pw_ai_answer      - Ask questions")
         print("   POST /v1/retrieve          - Semantic search")
@@ -115,18 +121,18 @@ class SimpleRAGServer:
         print("   POST /v1/statistics        - Get stats")
         print("=" * 60)
         
-        # Use QASummaryRestServer directly for better control
-        server = QASummaryRestServer(
-            host=self.host,
-            port=self.port,
-            rag_question_answerer=rag_app
-        )
+        # Build RAG server using our CORS-enabled webserver
+        rag_app.pw_ai_query(webserver)
+        rag_app.pw_ai_answer(webserver)
+        rag_app.retrieve(webserver)
+        rag_app.statistics(webserver)
+        rag_app.list_documents(webserver)
         
         # Run with caching
-        server.run(
+        pw.run(
+            monitoring_level=pw.MonitoringLevel.NONE,
             with_cache=True,
-            terminate_on_error=False,
-            cache_backend=pw.persistence.Backend.filesystem(config.CACHE_DIR)
+            cache_backend=pw.persistence.Backend.filesystem(config.CACHE_DIR),
         )
 
 
