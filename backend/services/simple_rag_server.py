@@ -114,8 +114,8 @@ class SimpleRAGServer:
         print("   POST /v1/statistics        - Get stats")
         print("=" * 60)
         
-        # Use Pathway's built-in server - handles all serialization automatically
-        self.rag_app.build_server(host=self.host, port=self.port)
+        # Use Pathway's built-in server with CORS enabled
+        self.rag_app.build_server(host=self.host, port=self.port, with_cors=True)
         
         # Run with caching
         self.rag_app.run_server(
