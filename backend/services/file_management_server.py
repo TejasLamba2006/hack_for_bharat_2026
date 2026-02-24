@@ -5,6 +5,7 @@ Handles CORS and forwards all RAG requests to Pathway server on port 9000
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flasgger import Swagger, swag_from
 import os
 import base64
 import datetime
@@ -18,6 +19,54 @@ from backend.core.config import DATA_DIRECTORY, SERVER_HOST, SERVER_PORT
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Swagger configuration
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": 'apispec',
+            "route": '/apispec.json',
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/docs"
+}
+
+swagger_template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "Hack For Bharat 2026 - RAG API",
+        "description": "Flask Proxy Server for Pathway RAG with file management capabilities",
+        "version": "1.0.0",
+        "contact": {
+            "name": "API Support",
+            "url": "https://github.com/TejasLamba2006/hack_for_bharat_2026"
+        }
+    },
+    "host": "207.244.225.17:9001",
+    "basePath": "/",
+    "schemes": ["http"],
+    "tags": [
+        {
+            "name": "File Management",
+            "description": "Upload, delete, and list files"
+        },
+        {
+            "name": "RAG (Proxied)",
+            "description": "Question answering and document retrieval (proxied to Pathway)"
+        },
+        {
+            "name": "System",
+            "description": "Health checks and system information"
+        }
+    ]
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 # This server's port
 PROXY_PORT = 9001
 
@@ -27,7 +76,60 @@ PATHWAY_SERVER = f"http://{SERVER_HOST}:{SERVER_PORT}"
 
 @app.route('/v1/upload', methods=['POST', 'OPTIONS'])
 def upload_file():
-    """Upload a file to data_room"""
+    """Upload a file to data_room
+    ---
+    tags:
+      - File Management
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - filename
+            - content
+          properties:
+            filename:
+              type: string
+              example: "document.pdf"
+              description: Name of the file to upload
+            content:
+              type: string
+              example: "SGVsbG8gV29ybGQ="
+              description: Base64 encoded file content
+    responses:
+      200:
+        description: File uploaded successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: "File 'document.pdf' uploaded successfully"
+            path:
+              type: string
+              example: "data_room/document.pdf"
+            size:
+              type: integer
+              example: 12345
+            size_mb:
+              type: number
+              example: 0.01
+            timestamp:
+              type: string
+              example: "2026-02-24T10:30:00"
+            note:
+              type: string
+              example: "File will be auto-indexed by Pathway within ~30 seconds"
+      400:
+        description: Missing filename or content
+      500:
+        description: Upload failed
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -73,7 +175,44 @@ def upload_file():
 
 @app.route('/v1/delete', methods=['POST', 'OPTIONS'])
 def delete_file():
-    """Delete a file from data_room"""
+    """Delete a file from data_room
+    ---
+    tags:
+      - File Management
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - filename
+          properties:
+            filename:
+              type: string
+              example: "document.pdf"
+              description: Name of the file to delete
+    responses:
+      200:
+        description: File deleted successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            message:
+              type: string
+            timestamp:
+              type: string
+            note:
+              type: string
+      404:
+        description: File not found
+      400:
+        description: Missing filename
+      500:
+        description: Delete failed
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -114,7 +253,44 @@ def delete_file():
 
 @app.route('/v1/files', methods=['GET', 'POST', 'OPTIONS'])
 def list_files():
-    """List all files in data_room with metadata"""
+    """List all files in data_room with metadata
+    ---
+    tags:
+      - File Management
+    responses:
+      200:
+        description: List of files with metadata
+        schema:
+          type: object
+          properties:
+            files:
+              type: array
+              items:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                  path:
+                    type: string
+                  size:
+                    type: integer
+                  size_mb:
+                    type: number
+                  modified:
+                    type: string
+                  extension:
+                    type: string
+                  type:
+                    type: string
+            total_count:
+              type: integer
+            directory:
+              type: string
+            timestamp:
+              type: string
+      500:
+        description: Error listing files
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -178,7 +354,29 @@ def _get_file_type(extension):
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
+    """Health check endpoint
+    ---
+    tags:
+      - System
+    responses:
+      200:
+        description: Server is healthy
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "healthy"
+            service:
+              type: string
+              example: "Proxy Server (Flask → Pathway)"
+            data_directory:
+              type: string
+            pathway_server:
+              type: string
+            timestamp:
+              type: string
+    """
     return jsonify({
         "status": "healthy",
         "service": "Proxy Server (Flask → Pathway)",
@@ -194,7 +392,39 @@ def health():
 
 @app.route('/v1/pw_ai_answer', methods=['POST', 'OPTIONS'])
 def proxy_ai_answer():
-    """Proxy to Pathway: Ask questions with RAG"""
+    """Ask questions using RAG (Retrieval Augmented Generation)
+    ---
+    tags:
+      - RAG (Proxied)
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - query
+          properties:
+            query:
+              type: string
+              example: "What is the main topic of the documents?"
+              description: The question to ask
+    responses:
+      200:
+        description: AI-generated answer with sources
+        schema:
+          type: object
+          properties:
+            result:
+              type: string
+              description: The generated answer
+            sources:
+              type: array
+              items:
+                type: object
+      503:
+        description: Failed to connect to Pathway server
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -216,7 +446,33 @@ def proxy_ai_answer():
 
 @app.route('/v1/retrieve', methods=['POST', 'OPTIONS'])
 def proxy_retrieve():
-    """Proxy to Pathway: Vector similarity search"""
+    """Vector similarity search without LLM
+    ---
+    tags:
+      - RAG (Proxied)
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - query
+          properties:
+            query:
+              type: string
+              example: "environmental impact"
+              description: Search query
+            k:
+              type: integer
+              example: 5
+              description: Number of results to return
+    responses:
+      200:
+        description: List of relevant document chunks
+      503:
+        description: Failed to connect to Pathway server
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -237,7 +493,25 @@ def proxy_retrieve():
 
 @app.route('/v1/statistics', methods=['POST', 'OPTIONS'])
 def proxy_statistics():
-    """Proxy to Pathway: Get statistics"""
+    """Get system statistics
+    ---
+    tags:
+      - RAG (Proxied)
+    responses:
+      200:
+        description: System statistics
+        schema:
+          type: object
+          properties:
+            total_documents:
+              type: integer
+            total_chunks:
+              type: integer
+            index_status:
+              type: string
+      503:
+        description: Failed to connect to Pathway server
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -258,7 +532,27 @@ def proxy_statistics():
 
 @app.route('/v1/pw_list_documents', methods=['POST', 'OPTIONS'])
 def proxy_list_documents():
-    """Proxy to Pathway: List indexed documents"""
+    """List all indexed documents in the RAG system
+    ---
+    tags:
+      - RAG (Proxied)
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            keys:
+              type: array
+              items:
+                type: string
+              example: ["path", "modified_at"]
+    responses:
+      200:
+        description: List of indexed documents
+      503:
+        description: Failed to connect to Pathway server
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -279,7 +573,28 @@ def proxy_list_documents():
 
 @app.route('/v1/pw_ai_summary', methods=['POST', 'OPTIONS'])
 def proxy_summary():
-    """Proxy to Pathway: Summarize text"""
+    """Summarize text using AI
+    ---
+    tags:
+      - RAG (Proxied)
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            text_list:
+              type: array
+              items:
+                type: string
+              example: ["Long text to summarize..."]
+    responses:
+      200:
+        description: Summaries generated
+      503:
+        description: Failed to connect to Pathway server
+    """
     if request.method == 'OPTIONS':
         return '', 200
     
