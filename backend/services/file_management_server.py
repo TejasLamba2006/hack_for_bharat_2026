@@ -679,5 +679,5 @@ if __name__ == "__main__":
     app.run(
         host=SERVER_HOST,
         port=PROXY_PORT,
-        debug=False
+        debug=True
     )
