@@ -213,7 +213,6 @@ def main():
     rag_app = BaseRAGQuestionAnswerer(
         llm=llm_chat,
         indexer=doc_store,
-        return_context_docs=True,
         search_topk=TOP_K,
         prompt_template=(
             "Use the context below to answer the question.\n\n"
@@ -233,50 +232,7 @@ def main():
         port=SERVER_PORT,
         rag_question_answerer=rag_app
     )
-    
-    # Get the webserver instance to add custom endpoints
-    webserver = rag_server.webserver
-    
-    # Register custom file management endpoints
-    serve_endpoint(
-        webserver=webserver,
-        route="/v1/upload",
-        schema=UploadFileSchema,
-        handler=handle_upload_file,
-        methods=("POST",)
-    )
-    
-    serve_endpoint(
-        webserver=webserver,
-        route="/v1/delete",
-        schema=DeleteFileSchema,
-        handler=handle_delete_file,
-        methods=("POST",)
-    )
-    
-    serve_endpoint(
-        webserver=webserver,
-        route="/v1/files",
-        schema=pw.schema_from_types(),
-        handler=handle_list_files,
-        methods=("GET", "POST")
-    )
-    
-    print(f"\n🌐 Server starting at http://{SERVER_HOST}:{SERVER_PORT}")
-    print("🔒 CORS: Enabled")
-    print("\n📡 Available Endpoints:")
-    print("   POST /v1/pw_ai_answer      - Ask questions (RAG)")
-    print("   POST /v1/retrieve          - Vector search")
-    print("   POST /v1/statistics        - Get stats")
-    print("   POST /v1/pw_list_documents - List indexed docs")
-    print("   POST /v1/pw_ai_summary     - Summarize text")
-    print("   POST /v1/upload            - Upload file")
-    print("   POST /v1/delete            - Delete file")
-    print("   POST /v1/files             - List files with metadata")
-    print("=" * 70)
-    print("\n⏳ Starting server (may take 30-60 seconds)...\n")
-    
-    # Run the server with cache
+        
     rag_server.run(
         with_cache=True,
         cache_backend=pw.persistence.Backend.filesystem("./Cache")
