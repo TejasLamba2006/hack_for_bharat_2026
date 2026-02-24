@@ -218,8 +218,11 @@ def main():
             "Use the context below to answer the question.\n\n"
             "Context:\n{context}\n\n"
             "Question: {query}\n\n"
-            "Answer based only on the provided context. "
-            "If the context doesn't have enough information, say so clearly."
+            "Answer the question in detail based on the provided context. "
+            "Include citations in the format [1], [2], etc. that correspond to the document snippets used. "
+            "Each citation number should map to a specific piece of information from the context. "
+            "If the context doesn't have enough information, say so clearly.\n\n"
+            "Important: Add citations [number] after each claim or fact you state."
         )
     )
     

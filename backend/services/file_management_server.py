@@ -410,19 +410,29 @@ def proxy_ai_answer():
               type: string
               example: "What is the main topic of the documents?"
               description: The question to ask
+            return_context_docs:
+              type: boolean
+              example: true
+              description: Whether to return source context documents
     responses:
       200:
-        description: AI-generated answer with sources
+        description: AI-generated answer with optional sources
         schema:
           type: object
           properties:
-            result:
+            response:
               type: string
               description: The generated answer
-            sources:
+            context_docs:
               type: array
+              description: Source context documents (if return_context_docs=true)
               items:
                 type: object
+                properties:
+                  text:
+                    type: string
+                  metadata:
+                    type: object
       503:
         description: Failed to connect to Pathway server
     """
@@ -430,15 +440,61 @@ def proxy_ai_answer():
         return '', 200
     
     try:
-        # Forward request to Pathway server
-        response = requests.post(
+        # Get request data
+        request_data = request.json
+        prompt = request_data.get('prompt', '')
+        return_context = request_data.get('return_context_docs', True)  # Default to True
+        
+        # Always get the AI answer
+        ai_response = requests.post(
             f"{PATHWAY_SERVER}/v1/pw_ai_answer",
-            json=request.json,
+            json={"prompt": prompt},
             headers={'Content-Type': 'application/json'},
             timeout=60
         )
-        # Return the text response directly, let Flask handle it
-        return response.text, response.status_code, {'Content-Type': 'application/json'}
+        
+        if ai_response.status_code != 200:
+            return ai_response.text, ai_response.status_code, {'Content-Type': 'application/json'}
+        
+        ai_data = ai_response.json()
+        
+        result = {
+            "response": ai_data.get("response", "")
+        }
+        
+        # If requested, also get context documents via retrieve endpoint
+        if return_context:
+            try:
+                retrieve_response = requests.post(
+                    f"{PATHWAY_SERVER}/v1/retrieve",
+                    json={"query": prompt, "k": 5},
+                    headers={'Content-Type': 'application/json'},
+                    timeout=30
+                )
+                
+                if retrieve_response.status_code == 200:
+                    retrieve_data = retrieve_response.json()
+                    # Convert retrieve results to context_docs format
+                    context_docs = []
+                    results = retrieve_data.get("results", [])
+                    
+                    for doc in results:
+                        context_docs.append({
+                            "text": doc.get("excerpt", ""),
+                            "metadata": {
+                                "path": doc.get("document_name", ""),
+                                "page": doc.get("line_number", 0),
+                                "relevance": doc.get("relevance_score", 0),
+                            }
+                        })
+                    
+                    result["context_docs"] = context_docs
+            except Exception as e:
+                # If retrieve fails, just return without context_docs
+                print(f"Warning: Failed to fetch context docs: {e}")
+        
+        return jsonify(result)
+        
     except requests.exceptions.RequestException as e:
         return jsonify({
             "error": str(e),
