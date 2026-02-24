@@ -125,7 +125,7 @@ def handle_delete_file(query_table: pw.Table) -> pw.Table:
 def handle_list_files(query_table: pw.Table) -> pw.Table:
     """List all files in data_room with metadata"""
     @pw.udf
-    def list_files() -> pw.Json:
+    def list_files(_: str) -> pw.Json:
         try:
             files = []
             
@@ -163,7 +163,7 @@ def handle_list_files(query_table: pw.Table) -> pw.Table:
             }
     
     response = query_table.select(
-        result=list_files()
+        result=list_files(query_table.id)
     )
     return response
 
