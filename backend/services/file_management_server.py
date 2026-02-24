@@ -71,7 +71,8 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 PROXY_PORT = 9001
 
 # Pathway RAG server URL (internal)
-PATHWAY_SERVER = f"http://{SERVER_HOST}:{SERVER_PORT}"
+# Use localhost/127.0.0.1 for client connections, not 0.0.0.0
+PATHWAY_SERVER = "http://127.0.0.1:9000"
 
 
 @app.route('/v1/upload', methods=['POST', 'OPTIONS'])
