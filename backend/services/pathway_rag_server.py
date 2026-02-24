@@ -229,21 +229,12 @@ def main():
         port=SERVER_PORT,
         with_cors=True
     )
-    rag_server =  QASummaryRestServer(
-        host=SERVER_HOST,
-        port=SERVER_PORT,
-        rag_question_answerer=rag_app
-    )
     
-    rag_server.run(
-        with_cache=True,
-        cache_backend=pw.persistence.Backend.filesystem("./Cache")
-    )
-    # # Register built-in RAG endpoints
-    # rag_app.pw_ai_answer(webserver)
-    # rag_app.retrieve(webserver)
-    # rag_app.statistics(webserver)
-    # rag_app.pw_list_documents(webserver)
+    # Register built-in RAG endpoints from VectorStoreServer
+    doc_store.build_server(webserver)
+    
+    # Register RAG answer endpoint manually
+    rag_app.answer_query(webserver)
     
     # Register custom file management endpoints
     serve_endpoint(
