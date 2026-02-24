@@ -67,7 +67,6 @@ PATHWAY_PERSISTENCE_CONFIG = {
 }
 
 CACHE_STRATEGY_CONFIG = {
-    "cache_folder": str(CACHE_DIR),
-    "max_retries": 6
+    "cache_folder": str(CACHE_DIR)
 }
 

@@ -4,7 +4,7 @@ Based on fintech-rag reference implementation pattern
 """
 
 import pathway as pw
-from pathway.udfs import DiskCache, ExponentialBackoffRetryStrategy
+from pathway.udfs import DiskCache
 from pathway.xpacks.llm import embedders, parsers
 from pathway.xpacks.llm.vector_store import VectorStoreServer
 import os
@@ -43,14 +43,9 @@ def main():
     - Support for PDF, TXT, DOCX, HTML files
     """
     
-    # Configure caching with exponential backoff retry
-    cache_strategy = ExponentialBackoffRetryStrategy(
-        max_retries=CACHE_STRATEGY_CONFIG["max_retries"]
-    )
-    
+    # Configure disk cache for embeddings
     disk_cache = DiskCache(
-        CACHE_STRATEGY_CONFIG["cache_folder"],
-        retry_strategy=cache_strategy
+        name=CACHE_STRATEGY_CONFIG["cache_folder"]
     )
     
     # Configure embedder (sentence-transformers)
