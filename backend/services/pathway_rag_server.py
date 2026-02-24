@@ -2,6 +2,7 @@ import pathway as pw
 from pathway.xpacks.llm import embedders, llms, parsers, splitters
 from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
 from pathway.xpacks.llm.vector_store import VectorStoreServer
+from pathway.xpacks.llm.servers import QASummaryRestServer
 import sys
 import os
 import base64
@@ -228,12 +229,21 @@ def main():
         port=SERVER_PORT,
         with_cors=True
     )
+    rag_server =  QASummaryRestServer(
+        host=SERVER_HOST,
+        port=SERVER_PORT,
+        rag_question_answerer=rag_app
+    )
     
-    # Register built-in RAG endpoints
-    rag_app.pw_ai_answer(webserver)
-    rag_app.retrieve(webserver)
-    rag_app.statistics(webserver)
-    rag_app.pw_list_documents(webserver)
+    rag_server.run(
+        with_cache=True,
+        cache_backend=pw.persistence.Backend.filesystem("./Cache")
+    )
+    # # Register built-in RAG endpoints
+    # rag_app.pw_ai_answer(webserver)
+    # rag_app.retrieve(webserver)
+    # rag_app.statistics(webserver)
+    # rag_app.pw_list_documents(webserver)
     
     # Register custom file management endpoints
     serve_endpoint(
