@@ -4,7 +4,6 @@ Based on fintech-rag reference implementation pattern
 """
 
 import pathway as pw
-from pathway.udfs import DiskCache
 from pathway.xpacks.llm import embedders, parsers
 from pathway.xpacks.llm.vector_store import VectorStoreServer
 import os
@@ -17,7 +16,6 @@ from backend.core.config import (
     PATHWAY_LICENSE_KEY,
     EMBEDDING_MODEL,
     DATA_DIRECTORY,
-    CACHE_STRATEGY_CONFIG,
     PATHWAY_PERSISTENCE_CONFIG,
     SERVER_HOST,
     SERVER_PORT
@@ -43,31 +41,9 @@ def main():
     - Support for PDF, TXT, DOCX, HTML files
     """
     
-    # Configure disk cache for embeddings
-    disk_cache = DiskCache(
-        name=CACHE_STRATEGY_CONFIG["cache_folder"]
-    )
-    
-    # Configure embedder (sentence-transformers)
-    embedder = embedders.SentenceTransformerEmbedder(
-        model=EMBEDDING_MODEL,
-        call_kwargs={"show_progress_bar": False}
-    )
-    
-    # Configure parser for multiple document types
-    parser = parsers.ParseUnstructured()
-    
-    # Configure filesystem data source
-    data_source = pw.io.fs.read(
-        DATA_DIRECTORY,
-        format="binary",
-        mode="streaming",
-        with_metadata=True
-    )
-    
     print(f"📂 Indexing documents from: {DATA_DIRECTORY}")
     print(f"🔧 Using embedder: {EMBEDDING_MODEL}")
-    print(f"💾 Cache directory: {CACHE_STRATEGY_CONFIG['cache_folder']}")
+    print(f"💾 Cache directory: ./Cache")
     
     # Create VectorStoreServer
     pipeline = VectorStoreServer(
@@ -85,12 +61,11 @@ def main():
     print(f"\n✅ CORS enabled for all origins")
     print(f"⏳ Waiting for requests...\n")
     
-    # Run server (automatically handles CORS)
+    # Run server with default filesystem cache
     pipeline.run_server(
         host=SERVER_HOST,
         port=SERVER_PORT,
         with_cache=True,
-        cache_backend=disk_cache,
         **PATHWAY_PERSISTENCE_CONFIG
     )
 
