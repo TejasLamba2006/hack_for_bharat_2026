@@ -105,7 +105,7 @@ def main():
         llm=llm_chat,
         indexer=doc_store,
         search_topk=TOP_K,
-        short_prompt_template=(
+        prompt_template=(
             "Use the context below to answer the question.\n\n"
             "Context:\n{context}\n\n"
             "Question: {query}\n\n"
