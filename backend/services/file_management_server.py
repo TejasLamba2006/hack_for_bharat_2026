@@ -11,10 +11,12 @@ import base64
 import datetime
 from pathlib import Path
 import sys
-import requests
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from backend.core.config import DATA_DIRECTORY, SERVER_HOST, SERVER_PORT
+
+# Import Pathway RAGClient for direct interaction
+from pathway.xpacks.llm.question_answering import RAGClient
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -73,6 +75,12 @@ PROXY_PORT = 9001
 # Pathway RAG server URL (internal)
 # Use localhost/127.0.0.1 for client connections, not 0.0.0.0
 PATHWAY_SERVER = "http://127.0.0.1:9000"
+
+# Error messages
+PATHWAY_CONNECTION_ERROR = "Failed to connect to Pathway RAG server"
+
+# Initialize Pathway RAGClient
+rag_client = RAGClient(host="127.0.0.1", port=9000)
 
 
 @app.route('/v1/upload', methods=['POST', 'OPTIONS'])
@@ -414,6 +422,14 @@ def proxy_ai_answer():
               type: boolean
               example: true
               description: Whether to return source context documents
+            filters:
+              type: string
+              example: null
+              description: Optional metadata filter for documents
+            model:
+              type: string
+              example: null
+              description: Optional LLM model override
     responses:
       200:
         description: AI-generated answer with optional sources
@@ -444,61 +460,26 @@ def proxy_ai_answer():
         request_data = request.json
         prompt = request_data.get('prompt', '')
         return_context = request_data.get('return_context_docs', True)  # Default to True
+        filters = request_data.get('filters', None)
+        model = request_data.get('model', None)
         
-        # Always get the AI answer
-        ai_response = requests.post(
-            f"{PATHWAY_SERVER}/v1/pw_ai_answer",
-            json={"prompt": prompt},
-            headers={'Content-Type': 'application/json'},
-            timeout=60
+        # Use RAGClient's built-in answer method with return_context_docs parameter
+        response = rag_client.answer(
+            prompt=prompt,
+            filters=filters,
+            model=model,
+            return_context_docs=return_context
         )
         
-        if ai_response.status_code != 200:
-            return ai_response.text, ai_response.status_code, {'Content-Type': 'application/json'}
+        # The response from RAGClient already has the correct format
+        # It returns: {"response": "...", "context_docs": [...]} when return_context_docs=True
+        # Or just {"response": "..."} when return_context_docs=False
+        return jsonify(response)
         
-        ai_data = ai_response.json()
-        
-        result = {
-            "response": ai_data.get("response", "")
-        }
-        
-        # If requested, also get context documents via retrieve endpoint
-        if return_context:
-            try:
-                retrieve_response = requests.post(
-                    f"{PATHWAY_SERVER}/v1/retrieve",
-                    json={"query": prompt, "k": 5},
-                    headers={'Content-Type': 'application/json'},
-                    timeout=30
-                )
-                
-                if retrieve_response.status_code == 200:
-                    retrieve_data = retrieve_response.json()
-                    # Convert retrieve results to context_docs format
-                    context_docs = []
-                    results = retrieve_data.get("results", [])
-                    
-                    for doc in results:
-                        context_docs.append({
-                            "text": doc.get("excerpt", ""),
-                            "metadata": {
-                                "path": doc.get("document_name", ""),
-                                "page": doc.get("line_number", 0),
-                                "relevance": doc.get("relevance_score", 0),
-                            }
-                        })
-                    
-                    result["context_docs"] = context_docs
-            except Exception as e:
-                # If retrieve fails, just return without context_docs
-                print(f"Warning: Failed to fetch context docs: {e}")
-        
-        return jsonify(result)
-        
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         return jsonify({
             "error": str(e),
-            "message": "Failed to connect to Pathway RAG server"
+            "message": PATHWAY_CONNECTION_ERROR
         }), 503
 
 
@@ -525,6 +506,14 @@ def proxy_retrieve():
               type: integer
               example: 5
               description: Number of results to return
+            metadata_filter:
+              type: string
+              example: null
+              description: Optional metadata filter for documents
+            filepath_globpattern:
+              type: string
+              example: null
+              description: Glob pattern for file paths
     responses:
       200:
         description: List of relevant document chunks
@@ -535,17 +524,25 @@ def proxy_retrieve():
         return '', 200
     
     try:
-        response = requests.post(
-            f"{PATHWAY_SERVER}/v1/retrieve",
-            json=request.json,
-            headers={'Content-Type': 'application/json'},
-            timeout=30
+        request_data = request.json
+        query = request_data.get('query', '')
+        k = request_data.get('k', 5)
+        metadata_filter = request_data.get('metadata_filter', None)
+        filepath_globpattern = request_data.get('filepath_globpattern', None)
+        
+        # Use RAGClient's retrieve method
+        response = rag_client.retrieve(
+            query=query,
+            k=k,
+            metadata_filter=metadata_filter,
+            filepath_globpattern=filepath_globpattern
         )
-        return response.text, response.status_code, {'Content-Type': 'application/json'}
-    except requests.exceptions.RequestException as e:
+        
+        return jsonify(response)
+    except Exception as e:
         return jsonify({
             "error": str(e),
-            "message": "Failed to connect to Pathway RAG server"
+            "message": PATHWAY_CONNECTION_ERROR
         }), 503
 
 
@@ -563,11 +560,16 @@ def proxy_list_documents():
         schema:
           type: object
           properties:
+            filters:
+              type: string
+              example: null
+              description: Optional metadata filter for documents
             keys:
               type: array
               items:
                 type: string
               example: ["path", "modified_at"]
+              description: List of metadata keys to include. None for all.
     responses:
       200:
         description: List of indexed documents
@@ -578,17 +580,21 @@ def proxy_list_documents():
         return '', 200
     
     try:
-        response = requests.post(
-            f"{PATHWAY_SERVER}/v1/pw_list_documents",
-            json=request.json if request.json else {},
-            headers={'Content-Type': 'application/json'},
-            timeout=10
+        request_data = request.json if request.json else {}
+        filters = request_data.get('filters', None)
+        keys = request_data.get('keys', ['path'])
+        
+        # Use RAGClient's list_documents method
+        response = rag_client.list_documents(
+            filters=filters,
+            keys=keys
         )
-        return response.text, response.status_code, {'Content-Type': 'application/json'}
-    except requests.exceptions.RequestException as e:
+        
+        return jsonify(response)
+    except Exception as e:
         return jsonify({
             "error": str(e),
-            "message": "Failed to connect to Pathway RAG server"
+            "message": PATHWAY_CONNECTION_ERROR
         }), 503
 
 
@@ -604,12 +610,19 @@ def proxy_summary():
         required: true
         schema:
           type: object
+          required:
+            - text_list
           properties:
             text_list:
               type: array
               items:
                 type: string
               example: ["Long text to summarize..."]
+              description: List of texts to summarize
+            model:
+              type: string
+              example: null
+              description: Optional LLM model override
     responses:
       200:
         description: Summaries generated
@@ -620,17 +633,21 @@ def proxy_summary():
         return '', 200
     
     try:
-        response = requests.post(
-            f"{PATHWAY_SERVER}/v1/pw_ai_summary",
-            json=request.json,
-            headers={'Content-Type': 'application/json'},
-            timeout=60
+        request_data = request.json
+        text_list = request_data.get('text_list', [])
+        model = request_data.get('model', None)
+        
+        # Use RAGClient's summarize method
+        response = rag_client.summarize(
+            text_list=text_list,
+            model=model
         )
-        return response.text, response.status_code, {'Content-Type': 'application/json'}
-    except requests.exceptions.RequestException as e:
+        
+        return jsonify(response)
+    except Exception as e:
         return jsonify({
             "error": str(e),
-            "message": "Failed to connect to Pathway RAG server"
+            "message": PATHWAY_CONNECTION_ERROR
         }), 503
 
 
