@@ -182,43 +182,9 @@ class CustomRAGRestServer:
         
         rag_responses = self.rag_app.answer_query(query_with_context)
         
-        @pw.udf
-        def format_answer_response(rag_result: pw.Json) -> pw.Json:
-            # Extract answer from the RAG result using pw.Json casting
-            # Use .as_dict() to properly convert pw.Json to Python dict
-            result_dict = rag_result.as_dict()
-            
-            # Extract the response text
-            answer_text = result_dict.get("response", str(rag_result))
-            
-            # Extract context_docs for sources
-            context_docs = result_dict.get("context_docs", [])
-            sources = []
-            
-            # Format sources from context_docs
-            if isinstance(context_docs, list):
-                for idx, doc in enumerate(context_docs[:5]):  # Limit to 5 sources
-                    if isinstance(doc, dict):
-                        metadata = doc.get("metadata", {})
-                        doc_path = metadata.get("path", "unknown")
-                        sources.append({
-                            "document_name": os.path.basename(doc_path) if doc_path != "unknown" else f"Source {idx+1}",
-                            "excerpt": doc.get("text", "")[:200],
-                            "relevance": 0.95 - (idx * 0.1)
-                        })
-            
-            # Return structure that frontend will JSON.parse
-            return {
-                "answer": json.dumps({
-                    "response": answer_text,
-                    "context_docs": context_docs
-                }),
-                "sources": sources,
-                "tokens_used": 0
-            }
-        
+        # Return RAG response directly without formatting to avoid pw.Json issues
         response = rag_responses.select(
-            result=format_answer_response(pw.this.result)
+            result=pw.this.result
         )
         
         return response
