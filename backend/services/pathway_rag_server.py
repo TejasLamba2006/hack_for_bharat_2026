@@ -213,6 +213,7 @@ def main():
     rag_app = BaseRAGQuestionAnswerer(
         llm=llm_chat,
         indexer=doc_store,
+        return_context_docs=True,
         search_topk=TOP_K,
         prompt_template=(
             "Use the context below to answer the question.\n\n"
