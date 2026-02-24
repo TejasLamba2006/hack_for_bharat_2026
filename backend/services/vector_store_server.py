@@ -16,7 +16,6 @@ from backend.core.config import (
     PATHWAY_LICENSE_KEY,
     EMBEDDING_MODEL,
     DATA_DIRECTORY,
-    PATHWAY_PERSISTENCE_CONFIG,
     SERVER_HOST,
     SERVER_PORT
 )
@@ -48,7 +47,7 @@ def main():
     )
     
     # Configure parser for multiple document types
-    parser = parsers.ParseUnstructured()
+    parser = parsers.UnstructuredParser()
     
     # Configure filesystem data source
     data_source = pw.io.fs.read(
@@ -82,8 +81,7 @@ def main():
     pipeline.run_server(
         host=SERVER_HOST,
         port=SERVER_PORT,
-        with_cache=True,
-        **PATHWAY_PERSISTENCE_CONFIG
+        with_cache=True
     )
 
 if __name__ == "__main__":

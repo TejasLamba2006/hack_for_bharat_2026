@@ -61,11 +61,6 @@ SERVER_HOST = HOST
 SERVER_PORT = PORT
 DATA_DIRECTORY = str(DATA_DIR)
 
-# Pathway persistence and caching
-PATHWAY_PERSISTENCE_CONFIG = {
-    "persistence_mode": "persisting",  # or "speedrun" mode for no persistence
-}
-
 CACHE_STRATEGY_CONFIG = {
     "cache_folder": str(CACHE_DIR)
 }
