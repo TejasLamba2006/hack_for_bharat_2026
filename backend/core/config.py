@@ -56,3 +56,19 @@ PATHWAY_LICENSE_KEY = os.getenv("PATHWAY_LICENSE_KEY", "")
 if PATHWAY_LICENSE_KEY:
     os.environ["PATHWAY_LICENSE_KEY"] = PATHWAY_LICENSE_KEY
 
+# Pathway server configuration (backwards compatibility)
+SERVER_HOST = HOST
+SERVER_PORT = PORT
+DATA_DIRECTORY = str(DATA_DIR)
+
+# Pathway persistence and caching
+PATHWAY_PERSISTENCE_CONFIG = {
+    "persistence_mode": "persisting",  # or "speedrun" mode for no persistence
+}
+
+CACHE_STRATEGY_CONFIG = {
+    "cache_folder": str(CACHE_DIR),
+    "max_retries": 6,
+    "retry_count": 6
+}
+
