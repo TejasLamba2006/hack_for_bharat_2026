@@ -6,6 +6,7 @@ Based on successful implementations from Pathway hackathon projects
 import pathway as pw
 from pathway.xpacks.llm import embedders, llms, parsers, splitters
 from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
+from pathway.xpacks.llm.servers import QASummaryRestServer
 from pathway.xpacks.llm.document_store import DocumentStore
 from pathway.stdlib.indexing import UsearchKnnFactory, USearchMetricKind
 import sys
@@ -100,7 +101,7 @@ class SimpleRAGServer:
         llm = self._create_llm()
         
         print("🏗️  Building RAG application...")
-        self.rag_app = BaseRAGQuestionAnswerer(
+        rag_app = BaseRAGQuestionAnswerer(
             llm=llm,
             indexer=doc_store
         )
@@ -114,11 +115,15 @@ class SimpleRAGServer:
         print("   POST /v1/statistics        - Get stats")
         print("=" * 60)
         
-        # Use Pathway's built-in server with CORS enabled
-        self.rag_app.build_server(host=self.host, port=self.port, with_cors=True)
+        # Use QASummaryRestServer directly for better control
+        server = QASummaryRestServer(
+            host=self.host,
+            port=self.port,
+            rag_question_answerer=rag_app
+        )
         
         # Run with caching
-        self.rag_app.run_server(
+        server.run(
             with_cache=True,
             terminate_on_error=False,
             cache_backend=pw.persistence.Backend.filesystem(config.CACHE_DIR)
