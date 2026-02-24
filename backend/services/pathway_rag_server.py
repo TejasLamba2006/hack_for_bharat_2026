@@ -223,18 +223,15 @@ def main():
         )
     )
     
-    # Create webserver with CORS enabled
-    webserver = pw.io.http.PathwayWebserver(
+    # Use QASummaryRestServer - it handles all RAG endpoints automatically
+    rag_server = QASummaryRestServer(
         host=SERVER_HOST,
         port=SERVER_PORT,
-        with_cors=True
+        rag_question_answerer=rag_app
     )
     
-    # Register built-in RAG endpoints from VectorStoreServer
-    doc_store.build_server(webserver)
-    
-    # Register RAG answer endpoint manually
-    rag_app.answer_query(webserver)
+    # Get the webserver instance to add custom endpoints
+    webserver = rag_server._webserver
     
     # Register custom file management endpoints
     serve_endpoint(
@@ -268,15 +265,15 @@ def main():
     print("   POST /v1/retrieve          - Vector search")
     print("   POST /v1/statistics        - Get stats")
     print("   POST /v1/pw_list_documents - List indexed docs")
+    print("   POST /v1/pw_ai_summary     - Summarize text")
     print("   POST /v1/upload            - Upload file")
     print("   POST /v1/delete            - Delete file")
     print("   POST /v1/files             - List files with metadata")
     print("=" * 70)
     print("\n⏳ Starting server (may take 30-60 seconds)...\n")
     
-    # Run with cache
-    pw.run(
-        monitoring_level=pw.MonitoringLevel.NONE,
+    # Run the server with cache
+    rag_server.run(
         with_cache=True,
         cache_backend=pw.persistence.Backend.filesystem("./Cache")
     )
