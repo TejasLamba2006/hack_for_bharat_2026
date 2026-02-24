@@ -33,7 +33,7 @@ class SimpleRAGServer:
     def _create_embedder(self):
         """Create sentence transformers embedder"""
         return embedders.SentenceTransformerEmbedder(
-            model=config.EMBEDDER_MODEL,
+            model=config.EMBEDDING_MODEL,
             call_kwargs={"show_progress_bar": False}
         )
     
@@ -42,7 +42,7 @@ class SimpleRAGServer:
         return llms.LiteLLMChat(
             model=config.LLM_MODEL,
             api_key=config.OPENROUTER_API_KEY,
-            api_base=config.OPENROUTER_API_BASE,
+            api_base=config.LLM_API_BASE,
             temperature=0.1,
             max_tokens=1000,
         )
@@ -88,7 +88,7 @@ class SimpleRAGServer:
         print("=" * 60)
         print(f"📡 Host: {self.host}:{self.port}")
         print(f"🤖 LLM: {config.LLM_MODEL}")
-        print(f"🔍 Embedder: {config.EMBEDDER_MODEL}")
+        print(f"🔍 Embedder: {config.EMBEDDING_MODEL}")
         print(f"📁 Data Directory: {config.DATA_DIR}")
         print("=" * 60)
         
