@@ -4,6 +4,7 @@ from pathway.xpacks.llm.question_answering import BaseRAGQuestionAnswerer
 from pathway.xpacks.llm.vector_store import VectorStoreServer
 import sys
 import os
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Callable
 
@@ -183,17 +184,36 @@ class CustomRAGRestServer:
         
         @pw.udf
         def format_answer_response(rag_result: pw.Json) -> pw.Json:
-            # Extract answer from the RAG result
-            # Simplified to avoid Pathway engine crash with nested JSON arrays
-            answer_text = ""
-            if isinstance(rag_result, dict):
-                answer_text = rag_result.get("response", str(rag_result))
-            else:
-                answer_text = str(rag_result)
+            # Extract answer from the RAG result using pw.Json casting
+            # Use .as_dict() to properly convert pw.Json to Python dict
+            result_dict = rag_result.as_dict()
             
-            # Return simple structure without nested arrays to avoid TryFromIntError
+            # Extract the response text
+            answer_text = result_dict.get("response", str(rag_result))
+            
+            # Extract context_docs for sources
+            context_docs = result_dict.get("context_docs", [])
+            sources = []
+            
+            # Format sources from context_docs
+            if isinstance(context_docs, list):
+                for idx, doc in enumerate(context_docs[:5]):  # Limit to 5 sources
+                    if isinstance(doc, dict):
+                        metadata = doc.get("metadata", {})
+                        doc_path = metadata.get("path", "unknown")
+                        sources.append({
+                            "document_name": os.path.basename(doc_path) if doc_path != "unknown" else f"Source {idx+1}",
+                            "excerpt": doc.get("text", "")[:200],
+                            "relevance": 0.95 - (idx * 0.1)
+                        })
+            
+            # Return structure that frontend will JSON.parse
             return {
-                "answer": answer_text,
+                "answer": json.dumps({
+                    "response": answer_text,
+                    "context_docs": context_docs
+                }),
+                "sources": sources,
                 "tokens_used": 0
             }
         
@@ -241,13 +261,18 @@ class CustomRAGRestServer:
         retrieval_results = self.rag_app.retrieve(query_with_defaults)
         
         @pw.udf
-        def wrap_retrieve_response(docs: Any) -> pw.Json:
+        def wrap_retrieve_response(docs: pw.Json) -> pw.Json:
             results_list = []
-            if hasattr(docs, 'value'):
-                docs = docs.value
             
-            if isinstance(docs, list):
-                for idx, doc in enumerate(docs):
+            # Use .as_list() to properly convert pw.Json to Python list
+            try:
+                docs_list = docs.as_list()
+            except:
+                # If it's not a list, try as dict or return empty
+                docs_list = []
+            
+            for idx, doc in enumerate(docs_list):
+                if isinstance(doc, dict):
                     metadata = doc.get("metadata", {})
                     doc_path = metadata.get("path", "unknown")
                     doc_text = doc.get("text", "")
@@ -315,13 +340,18 @@ class CustomRAGRestServer:
         docs_results = self.rag_app.list_documents(query_with_filter)
         
         @pw.udf
-        def wrap_documents_response(docs: Any) -> pw.Json:
+        def wrap_documents_response(docs: pw.Json) -> pw.Json:
             documents_list = []
-            if hasattr(docs, 'value'):
-                docs = docs.value
             
-            if isinstance(docs, list):
-                for doc in docs:
+            # Use .as_list() to properly convert pw.Json to Python list
+            try:
+                docs_list = docs.as_list()
+            except:
+                # If it's not a list, return empty
+                docs_list = []
+            
+            for doc in docs_list:
+                if isinstance(doc, dict):
                     path = doc.get("path", "unknown")
                     metadata = doc.get("metadata", {})
                     
@@ -352,8 +382,9 @@ class CustomRAGRestServer:
         def create_summary_response(text_list: pw.Json) -> pw.Json:
             summaries = []
             
-            # Handle text_list (could be array or single value)
-            texts = text_list if isinstance(text_list, list) else [text_list]
+            # Handle text_list using pw.Json casting method
+            # Use .as_list() to properly convert pw.Json to Python list
+            texts = text_list.as_list()
             
             for text in texts:
                 summaries.append({
