@@ -45,12 +45,11 @@ def main():
     
     # Configure caching with exponential backoff retry
     cache_strategy = ExponentialBackoffRetryStrategy(
-        max_retries=CACHE_STRATEGY_CONFIG["max_retries"],
-        retry_count=CACHE_STRATEGY_CONFIG.get("retry_count", 6)
+        max_retries=CACHE_STRATEGY_CONFIG["max_retries"]
     )
     
     disk_cache = DiskCache(
-        cache_folder=CACHE_STRATEGY_CONFIG["cache_folder"],
+        CACHE_STRATEGY_CONFIG["cache_folder"],
         retry_strategy=cache_strategy
     )
     
