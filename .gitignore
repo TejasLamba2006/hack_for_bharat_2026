@@ -1,4 +1,7 @@
-# .gitignore for Pathway RAG Project
+node_modules/
+.next/
+.env*.local
+.DS_Store
 
 # Python
 __pycache__/
