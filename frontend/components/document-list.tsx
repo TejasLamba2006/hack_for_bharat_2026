@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { DocumentFile } from '@/lib/types';
-import { storage } from '@/lib/storage';
-import { Trash2, FileText, Calendar, HardDrive } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { DocumentFile } from "@/lib/types";
+import { storage } from "@/lib/storage";
+import { api } from "@/lib/api";
+import { Trash2, FileText, Calendar, HardDrive } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface DocumentListProps {
   documents: DocumentFile[];
@@ -11,41 +12,58 @@ interface DocumentListProps {
   refreshTrigger?: number;
 }
 
-export function DocumentList({ documents, onDelete, refreshTrigger }: DocumentListProps) {
+export function DocumentList({
+  documents,
+  onDelete,
+  refreshTrigger,
+}: DocumentListProps) {
   const [docs, setDocs] = useState<DocumentFile[]>(documents);
 
   useEffect(() => {
     setDocs(documents);
   }, [documents, refreshTrigger]);
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (confirm(`Delete "${name}"?`)) {
-      storage.deleteDocument(id);
-      storage.logAnalytics({
-        type: 'delete',
-        timestamp: Date.now(),
-        details: { documentName: name },
-      });
-      setDocs(docs.filter(d => d.id !== id));
-      onDelete?.(id);
+      try {
+        // Delete from backend (Flask API)
+        await api.deleteFile(name);
+
+        // Delete from local storage
+        storage.deleteDocument(id);
+        storage.logAnalytics({
+          type: "delete",
+          timestamp: Date.now(),
+          details: { documentName: name },
+        });
+
+        setDocs(docs.filter((d) => d.id !== id));
+        onDelete?.(id);
+      } catch (error) {
+        console.error("Failed to delete file:", error);
+        // Still delete from local storage even if backend fails
+        storage.deleteDocument(id);
+        setDocs(docs.filter((d) => d.id !== id));
+        onDelete?.(id);
+      }
     }
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
+    const sizes = ["Bytes", "KB", "MB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   const formatDate = (timestamp: number): string => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(timestamp).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -68,7 +86,9 @@ export function DocumentList({ documents, onDelete, refreshTrigger }: DocumentLi
           <div className="flex items-start gap-4 flex-1">
             <FileText className="w-5 h-5 mt-1 text-primary flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-foreground truncate">{doc.name}</h4>
+              <h4 className="font-medium text-foreground truncate">
+                {doc.name}
+              </h4>
               <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />

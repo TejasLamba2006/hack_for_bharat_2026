@@ -3,6 +3,7 @@
 import { ChatMessage as ChatMessageType, SourceCitation } from '@/lib/types';
 import { FileText, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { MessageWithCitations } from './message-with-citations';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -60,9 +61,16 @@ export function ChatMessage({ message }: ChatMessageProps) {
                   : 'bg-card rounded-tl-none'
               }`}
             >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                {message.content}
-              </p>
+              {isUser ? (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                  {message.content}
+                </p>
+              ) : (
+                <MessageWithCitations 
+                  content={message.content} 
+                  sources={message.sources}
+                />
+              )}
             </div>
 
             {/* Source Citations */}

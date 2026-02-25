@@ -1,40 +1,61 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { DocumentFile } from '@/lib/types';
-import { storage } from '@/lib/storage';
-import { UploadForm } from '@/components/upload-form';
-import { DocumentList } from '@/components/document-list';
-import { DemoLoader } from '@/components/demo-loader';
-import { Upload, FileText, MessageCircle } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useEffect } from "react";
+import { DocumentFile } from "@/lib/types";
+import { storage } from "@/lib/storage";
+import { UploadForm } from "@/components/upload-form";
+import { DocumentList } from "@/components/document-list";
+import { Upload, FileText, MessageCircle, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { api } from "@/lib/api";
 
 export default function Home() {
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [backendFiles, setBackendFiles] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const docs = storage.getDocuments();
-    setDocuments(docs);
+    loadDocuments();
   }, []);
 
+  const loadDocuments = async () => {
+    setIsLoading(true);
+    try {
+      const filesResponse = await api.listFiles();
+      const docs = api.convertToDocumentFiles(filesResponse);
+      setDocuments(docs);
+      setBackendFiles(filesResponse.files || []);
+    } catch (err) {
+      console.error("Failed to load documents:", err);
+      // Fallback to localStorage
+      const docs = storage.getDocuments();
+      setDocuments(docs);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleUploadSuccess = (doc: DocumentFile) => {
-    setDocuments(prev => [...prev, doc]);
-    setRefreshTrigger(prev => prev + 1);
+    setRefreshTrigger((prev) => prev + 1);
+    // Refresh documents after upload
+    loadDocuments();
   };
 
   const handleDelete = () => {
-    setRefreshTrigger(prev => prev + 1);
+    setRefreshTrigger((prev) => prev + 1);
+    // Refresh documents after delete
+    loadDocuments();
   };
 
   return (
     <main className="min-h-screen bg-background">
-      <DemoLoader
+      {/* <DemoLoader
         onLoadComplete={() => {
           const docs = storage.getDocuments();
           setDocuments(docs);
         }}
-      />
+      /> */}
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
@@ -79,7 +100,8 @@ export default function Home() {
                 Upload Documents
               </h2>
               <p className="text-muted-foreground">
-                Upload your documents and make them searchable with AI-powered search.
+                Upload your documents and make them searchable with AI-powered
+                search.
               </p>
             </div>
             <UploadForm onUploadSuccess={handleUploadSuccess} />
@@ -88,10 +110,24 @@ export default function Home() {
           {/* Stats Section */}
           <div className="lg:col-span-1">
             <div className="bg-card border border-border rounded-lg p-6 sticky top-24">
-              <h3 className="font-semibold text-foreground mb-4">Quick Stats</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-foreground">Quick Stats</h3>
+                <button
+                  onClick={loadDocuments}
+                  disabled={isLoading}
+                  className="p-1 hover:bg-accent rounded transition-colors"
+                  title="Refresh stats"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 text-muted-foreground ${isLoading ? "animate-spin" : ""}`}
+                  />
+                </button>
+              </div>
               <div className="space-y-4">
                 <div className="p-4 bg-accent/5 rounded-lg border border-border">
-                  <p className="text-sm text-muted-foreground">Documents Uploaded</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total Documents
+                  </p>
                   <p className="text-3xl font-bold text-foreground mt-1">
                     {documents.length}
                   </p>
@@ -99,11 +135,15 @@ export default function Home() {
                 <div className="p-4 bg-accent/5 rounded-lg border border-border">
                   <p className="text-sm text-muted-foreground">Total Size</p>
                   <p className="text-3xl font-bold text-foreground mt-1">
-                    {(
-                      documents.reduce((sum, doc) => sum + doc.size, 0) /
-                      1024 /
-                      1024
-                    ).toFixed(2)}
+                    {backendFiles.length > 0
+                      ? backendFiles
+                          .reduce((sum, f) => sum + f.size_mb, 0)
+                          .toFixed(2)
+                      : (
+                          documents.reduce((sum, doc) => sum + doc.size, 0) /
+                          1024 /
+                          1024
+                        ).toFixed(2)}
                     MB
                   </p>
                 </div>

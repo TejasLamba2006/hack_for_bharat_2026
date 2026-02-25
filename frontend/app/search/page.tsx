@@ -1,37 +1,98 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { DocumentFile, SearchResult } from '@/lib/types';
-import { storage } from '@/lib/storage';
-import { search } from '@/lib/search';
-import { SearchResults } from '@/components/search-results';
-import { FileText, Search as SearchIcon } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useEffect, useMemo } from "react";
+import { DocumentFile, SearchResult } from "@/lib/types";
+import { storage } from "@/lib/storage";
+import { api } from "@/lib/api";
+import { SearchResults } from "@/components/search-results";
+import { FileText, Search as SearchIcon, AlertCircle } from "lucide-react";
+import Link from "next/link";
 
 export default function SearchPage() {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTime, setSearchTime] = useState(0);
 
   useEffect(() => {
-    const docs = storage.getDocuments();
-    setDocuments(docs);
+    loadDocuments();
 
     // Load search history
-    const history = localStorage.getItem('searchHistory');
+    const history = localStorage.getItem("searchHistory");
     if (history) {
       setSearchHistory(JSON.parse(history));
     }
+
+    // Check backend health
+    api.checkHealth().then((healthy) => {
+      setBackendAvailable(healthy);
+      if (!healthy) {
+        setError(
+          "Backend server is not available. Please start the Pathway server.",
+        );
+      }
+    });
   }, []);
 
-  const results = useMemo(() => {
-    if (!query.trim()) return [];
-    setIsSearching(true);
-    const res = search.performSearch(query, documents);
-    setIsSearching(false);
-    return res;
-  }, [query, documents]);
+  const loadDocuments = async () => {
+    try {
+      const filesResponse = await api.listFiles();
+      const docs = api.convertToDocumentFiles(filesResponse);
+      setDocuments(docs);
+    } catch (err) {
+      console.error("Failed to load documents from API:", err);
+      // Fallback to localStorage
+      const docs = storage.getDocuments();
+      setDocuments(docs);
+    }
+  };
+
+  // Perform search when query changes
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
+
+    const performSearch = async () => {
+      setIsSearching(true);
+      setError(null);
+      const startTime = Date.now();
+
+      try {
+        const response = await api.retrieve(query, 10);
+        const endTime = Date.now();
+        setSearchTime(endTime - startTime);
+
+        // Convert backend response to SearchResult format
+        const searchResults: SearchResult[] = (response.results || []).map(
+          (result) => ({
+            documentId: result.document_id,
+            documentName: result.document_name,
+            excerpt: result.excerpt,
+            relevance: result.relevance_score * 100, // Convert to 0-100 scale
+            matchedText: result.excerpt,
+          }),
+        );
+
+        setResults(searchResults);
+      } catch (err) {
+        console.error("Search error:", err);
+        setError(
+          "Failed to search documents. Please check if the backend server is running.",
+        );
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    performSearch();
+  }, [query]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -42,10 +103,10 @@ export default function SearchPage() {
     if (query.trim() && !searchHistory.includes(query)) {
       const newHistory = [query, ...searchHistory].slice(0, 10);
       setSearchHistory(newHistory);
-      localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+      localStorage.setItem("searchHistory", JSON.stringify(newHistory));
 
       storage.logAnalytics({
-        type: 'search',
+        type: "search",
         timestamp: Date.now(),
         details: { query, resultCount: results.length },
       });
@@ -57,11 +118,19 @@ export default function SearchPage() {
   };
 
   const keywords = useMemo(() => {
-    return Array.from(
-      new Set(
-        documents.flatMap(doc => search.extractKeywords(doc.content))
-      )
-    ).slice(0, 10);
+    // Simple keyword extraction from documents if available
+    if (documents.length === 0) return [];
+
+    const words = new Set<string>();
+    documents.slice(0, 5).forEach((doc) => {
+      const docWords = doc.content
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((word) => word.length > 4);
+      docWords.slice(0, 20).forEach((w) => words.add(w));
+    });
+
+    return Array.from(words).slice(0, 10);
   }, [documents]);
 
   return (
@@ -106,9 +175,24 @@ export default function SearchPage() {
             Search Your Documents
           </h2>
           <p className="text-muted-foreground">
-            Find information across all your uploaded documents instantly.
+            Find information across all your indexed documents using semantic
+            search.
           </p>
         </div>
+
+        {/* Backend Error Alert */}
+        {error && (
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-destructive">{error}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Make sure the Pathway server is running on port
+                {process.env.NEXT_PUBLIC_API_BASE_URL?.split(":").pop()}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Search Bar */}
         <div className="mb-8">
@@ -116,15 +200,20 @@ export default function SearchPage() {
             <SearchIcon className="absolute left-4 top-3.5 w-5 h-5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search documents..."
+              placeholder={
+                !backendAvailable
+                  ? "Backend server not available..."
+                  : "Search documents..."
+              }
               value={query}
               onChange={handleSearch}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === "Enter") {
                   handleSearchSubmit();
                 }
               }}
-              className="w-full pl-12 pr-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+              disabled={!backendAvailable}
+              className="w-full pl-12 pr-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -162,6 +251,7 @@ export default function SearchPage() {
             )}
 
             {/* Keywords */}
+            {/* Keywords */}
             {keywords.length > 0 && (
               <div className="bg-card border border-border rounded-lg p-4">
                 <h3 className="font-semibold text-foreground mb-3 text-sm">
@@ -184,24 +274,27 @@ export default function SearchPage() {
             {/* Stats */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="font-semibold text-foreground mb-3 text-sm">
-                Database Stats
+                Search Stats
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Documents:</span>
+                  <span className="text-muted-foreground">Results:</span>
                   <span className="font-medium text-foreground">
-                    {documents.length}
+                    {results.length}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Size:</span>
+                  <span className="text-muted-foreground">Search Time:</span>
                   <span className="font-medium text-foreground">
-                    {(
-                      documents.reduce((sum, doc) => sum + doc.size, 0) /
-                      1024 /
-                      1024
-                    ).toFixed(2)}
-                    MB
+                    {searchTime}ms
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span
+                    className={`font-medium ${backendAvailable ? "text-green-600" : "text-destructive"}`}
+                  >
+                    {backendAvailable ? "Connected" : "Offline"}
                   </span>
                 </div>
               </div>
