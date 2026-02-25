@@ -1,0 +1,37 @@
+name: Documentation Check
+
+on:
+  push:
+    branches: [master, main, develop]
+    paths:
+      - "**.md"
+      - ".github/workflows/docs-check.yml"
+  pull_request:
+    branches: [master, main, develop]
+    paths:
+      - "**.md"
+
+jobs:
+  markdown-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Markdown lint
+        uses: actionshub/markdownlint@main
+        continue-on-error: true
+
+  check-links:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check links in markdown files
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          config-file: ".github/workflows/mlc_config.json"
+          use-quiet-mode: "yes"
+          check-modified-files-only: "yes"
+        continue-on-error: true
