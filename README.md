@@ -1,103 +1,108 @@
-# Hack For Green Bharat 2026 - Document Q&A System
+# Document Q&A System
 
-A real-time document question-answering system built for the Hack For Green Bharat 2026 hackathon. Drop documents into a folder, ask questions about them in plain English, get answers with source citations.
+Built for Hack For Green Bharat 2026. You drop documents in a folder, ask questions about them, and get answers with citations showing where the information came from.
 
-## What this does
+## What it does
 
-Upload PDFs, Word docs, text files, spreadsheets, or images with text. Ask questions like "What is this document about?" or "Explain section 3" and get answers pulled directly from your documents, with references to where the answer came from.
+Upload PDFs, Word docs, spreadsheets, text files - basically anything with text in it. Ask "What's in section 3?" or "Summarize this report" and you'll get an answer pulled from your documents. Each answer shows which file and page it came from.
 
-The system watches the document folder and automatically indexes new files as you add them. No manual rebuild needed.
+New files get indexed automatically when you add them to the watch folder. No need to restart anything.
 
-## Installation
+## Setup
 
-Requires Python 3.9 or newer.
+You need Python 3.9 or later.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-This installs:
-- `pathway` - The framework that handles document monitoring and real-time indexing
-- `sentence-transformers` - Creates embeddings locally without API calls
-- `openai` - For talking to LLM APIs
-- `python-dotenv` - Loads environment variables from .env
+This grabs:
+
+- `pathway` - Watches files and handles the indexing
+- `sentence-transformers` - Runs embeddings on your machine (no API costs)
+- `openai` - Talks to LLMs
+- `python-dotenv` - Loads your config from .env
 
 ## Configuration
 
-Create a `.env` file in the project root:
+Make a `.env` file:
 
 ```env
-# Required: Get your API key at https://openrouter.ai/keys
+# Get your key at https://openrouter.ai/keys
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
 
-# Which AI model to use
+# Which model to use
 LLM_MODEL=deepseek/deepseek-chat-v3.1
 LLM_API_BASE=https://openrouter.ai/api/v1
 
-# Where your documents live
+# Where to look for documents
 DATA_DIR=./data_room
 
 # Server port
 PORT=8000
 
-# Embedding configuration
+# Embedding setup
 EMBEDDER_TYPE=sentence-transformers
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 
-# Processing settings
+# How big to chunk documents
 CHUNK_SIZE=1000
 TOP_K=5
 ```
 
-Notes on embeddings: `sentence-transformers` runs on your machine for free but uses RAM. Switch to `EMBEDDER_TYPE=openai` if you want cloud-based embeddings (requires OpenAI API key, costs money).
+Note: `sentence-transformers` runs locally and doesn't cost anything, but it'll use some RAM. If you want cloud embeddings instead, switch to `EMBEDDER_TYPE=openai` (needs an OpenAI key, costs money).
 
-DeepSeek v3.1 costs $0.14 per million tokens through OpenRouter, which is cheap. You can use other models by changing `LLM_MODEL`.
+DeepSeek v3.1 runs about $0.14 per million tokens on OpenRouter. Pretty cheap. You can swap in other models by changing `LLM_MODEL`.
 
-## Add documents
+## Adding documents
 
-Put files in the `data_room/` folder:
+Just toss files into `data_room/`:
 
 ```bash
 mkdir -p data_room
-cp ~/Documents/my-research.pdf data_room/
+cp ~/Documents/whatever.pdf data_room/
 ```
 
-Supported formats: PDF, DOCX, XLSX, TXT, CSV, MD, and images (with OCR).
+Works with: PDF, DOCX, XLSX, TXT, CSV, MD, and images if you have OCR set up.
 
-## Start the service
+## Running it
 
-Linux/Mac/WSL:
+On Linux/Mac/WSL:
+
 ```bash
 bash start.sh
 ```
 
 Windows:
+
 ```bash
 start.bat
 ```
 
-Or directly:
+Or run directly:
+
 ```bash
 python3 -m backend.services.integrated_rag
 ```
 
-First startup takes 10-60 seconds while it loads the embedding model and scans documents. Subsequent starts are faster if you have the cache.
+First time takes a minute while it loads the embedding model and scans your documents. After that it's faster thanks to caching.
 
-The service runs on `http://localhost:8000` and stays running until you stop it.
+Runs on `http://localhost:8000` and keeps going until you kill it.
 
-## API usage
+## Using the API
 
-All endpoints use POST requests (this is a Pathway framework design decision, even for reads).
+Everything uses POST requests (Pathway framework quirk - even the read operations).
 
-### Ask a question
+### Ask something
 
 ```bash
 curl -X POST http://localhost:8000/v1/pw_ai_answer \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "What are the main topics in these documents?"}'
+  -d '{"prompt": "What are these documents about?"}'
 ```
 
-Response:
+Gets you:
+
 ```json
 {
   "answer": "The documents cover...",
@@ -107,9 +112,9 @@ Response:
 }
 ```
 
-### Search without LLM
+### Search without the LLM
 
-Retrieve relevant chunks without generating an answer:
+Just get relevant chunks:
 
 ```bash
 curl -X POST http://localhost:8000/v1/retrieve \
@@ -117,7 +122,7 @@ curl -X POST http://localhost:8000/v1/retrieve \
   -d '{"query": "climate change", "k": 5}'
 ```
 
-### List documents
+### See what's indexed
 
 ```bash
 curl -X POST http://localhost:8000/v1/pw_list_documents \
@@ -125,7 +130,7 @@ curl -X POST http://localhost:8000/v1/pw_list_documents \
   -d '{"keys": ["path", "modified_at"]}'
 ```
 
-### Summarize text
+### Summarize stuff
 
 ```bash
 curl -X POST http://localhost:8000/v1/pw_ai_summary \
@@ -133,66 +138,71 @@ curl -X POST http://localhost:8000/v1/pw_ai_summary \
   -d '{"text_list": ["Text to summarize..."]}'
 ```
 
-## Available endpoints
+## What's available
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/pw_ai_answer` | POST | Ask a question, get an AI answer |
-| `/v1/retrieve` | POST | Search for relevant chunks |
-| `/v1/pw_list_documents` | POST | List indexed files |
-| `/v1/pw_ai_summary` | POST | Summarize text |
-| `/v1/upload` | POST | Upload files to data_room |
-| `/v1/delete` | POST | Delete files from data_room |
-| `/v1/files` | GET | List files in data_room |
-| `/health` | GET | Health check |
-Documents in folder → File monitor detects changes
-                   → Parser extracts text (PDFs, Word, etc.)
-                   → Splitter breaks text into ~1000 token chunks
-                   → Embedder converts chunks to vectors
-                   → Vector store indexes them (FAISS)
-                   → REST API serves queries
-                   → RAG retrieves relevant chunks
-                   → LLM generates answer
+| Endpoint | What it does |
+|----------|---------|
+| `/v1/pw_ai_answer` | Ask questions, get AI answers |
+| `/v1/retrieve` | Find relevant chunks |
+| `/v1/pw_list_documents` | See what's indexed |
+| `/v1/pw_ai_summary` | Summarize text |
+| `/v1/upload` | Add files |
+| `/v1/delete` | Remove files |
+| `/v1/files` | List files |
+| `/health` | Check if it's running |
+
+## How it works
+
+```
+Files in folder → Pathway spots changes
+               → Parser reads PDFs, Word docs, etc.
+               → Text split into ~1000 token chunks
+               → Chunks converted to vectors
+               → FAISS indexes them
+               → API serves requests
+               → Search finds relevant chunks
+               → LLM writes an answer
 ```
 
-Tech stack:
-- Pathway framework for real-time processing
+Stack:
+
+- Pathway for the file watching and real-time updates
 - FAISS for vector search
 - SentenceTransformers for local embeddings
-- DeepSeek v3.1 LLM via OpenRouter
-- Rust engine under the hood (Pathway compiles Python to Rust for performance)
+- DeepSeek v3.1 through OpenRouter
+- Rust engine (Pathway compiles Python to Rust)
 
-## Project structure
+## Files
 
 ```
 hack_for_bharat_2026/
 ├── backend/
 │   ├── core/
-│   │   └── config.py              # Configuration
+│   │   └── config.py         # Settings
 │   └── services/
-│       └── integrated_rag.py      # Main service
-├── frontend/                       # Web UI (Next.js)
-├── data_room/                      # Put documents here
-├── Cache/                          # Auto-generated
-├── .env                            # Your config
+│       └── integrated_rag.py # Main code
+├── frontend/                  # Web UI (Next.js)
+├── data_room/                 # Documents go here
+├── Cache/                     # Generated
+├── .env                       # Your config
 ├── requirements.txt
 ├── start.sh
 └── start.bat
 ```
 
-## Configuration variables
+## Settings
 
-| Variable | Description | Default | Required |
+| Variable | What it's for | Default | Required |
 |----------|-------------|---------|----------|
-| `OPENROUTER_API_KEY` | OpenRouter API key | - | Yes |
-| `LLM_MODEL` | LLM model name | `deepseek/deepseek-chat-v3.1` | No |
-| `LLM_API_BASE` | API endpoint | `https://openrouter.ai/api/v1` | No |
-| `DATA_DIR` | Document directory | `./data_room` | No |
-| `PORT` | API port | `8000` | No |
+| `OPENROUTER_API_KEY` | OpenRouter key | - | Yes |
+| `LLM_MODEL` | Which LLM | `deepseek/deepseek-chat-v3.1` | No |
+| `LLM_API_BASE` | API URL | `https://openrouter.ai/api/v1` | No |
+| `DATA_DIR` | Document folder | `./data_room` | No |
+| `PORT` | Server port | `8000` | No |
 | `EMBEDDER_TYPE` | `sentence-transformers` or `openai` | `sentence-transformers` | No |
 | `EMBEDDING_MODEL` | Model name | `all-MiniLM-L6-v2` | No |
 | `CHUNK_SIZE` | Tokens per chunk | `1000` | No |
-| `TOP_K` | Results to retrieve | `5` | No |
+| `TOP_K` | How many results | `5` | No |
 
 ## Troubleshooting
 
@@ -220,11 +230,13 @@ set PORT=8001     # Windows
 ### Slow embeddings
 
 Use a smaller model:
+
 ```bash
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ```
 
 Or switch to cloud embeddings:
+
 ```bash
 EMBEDDER_TYPE=openai
 OPENAI_API_KEY=your-key
@@ -233,6 +245,7 @@ OPENAI_API_KEY=your-key
 ### Out of memory
 
 Reduce chunk size:
+
 ```bash
 CHUNK_SIZE=500
 ```
@@ -258,6 +271,7 @@ The cache saves processed embeddings. First run is slow, but restarts are fast i
 - [OpenRouter API](https://openrouter.ai/docs)
 
 Other files in this repo:
+
 - `API_EXAMPLES.md` - More API examples
 - `INTEGRATION.md` - Integration guide
 - `frontend/README.md` - Web UI docs

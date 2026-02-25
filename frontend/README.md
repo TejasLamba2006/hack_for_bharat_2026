@@ -1,153 +1,145 @@
-# DocSearch - Document Chat Interface
+# Document Chat Interface
 
-A Next.js frontend for asking questions about documents using RAG (Retrieval-Augmented Generation). Upload files, ask questions, get AI-powered answers with source citations. **Now fully integrated with the Pathway REST backend!**
+Web frontend for asking questions about documents using RAG. Upload files, ask questions, get answers with citations. Connected to the Pathway backend for everything.
 
-> **🎉 Integration Complete!** The frontend is now fully connected to the Pathway backend for RAG chat, semantic search, and real-time statistics. See [INTEGRATION.md](./INTEGRATION.md) for details.
+## What you get
 
-## Features
-
-- Upload PDF, TXT, MD, and DOCX files (max 10MB)
-- Chat interface for document Q&A
-- Source citations show which document and line number
-- Animated UI with loading states
-- Token-based search with relevance scoring
-- Analytics dashboard tracks uploads and activity
-- Everything stored in browser localStorage
-- Responsive design
+- Upload PDFs, TXT, MD, DOCX (10MB max)
+- Chat interface for Q&A
+- Citations show which doc and line number
+- Loading animations
+- Search with relevance scoring
+- Analytics dashboard
+- Everything in browser localStorage
+- Works on mobile
 
 ## Pages
 
 ### Home (/)
 
-Upload documents via drag-and-drop or file picker. See recently uploaded files and basic stats. Includes a demo data loader for testing.
+Upload docs with drag-and-drop. See recent uploads and stats. Demo data button for testing.
 
 ### Chat (/chat)
 
-Ask questions about your documents. Responses include expandable source citations with line numbers and relevance scores. Typing indicators and animations included.
+Ask about your documents. Answers come with expandable citations showing line numbers and relevance. Typing indicators included.
 
 ### Admin (/admin)
 
 Two tabs:
 
-- Analytics: Activity charts, event logs, usage stats for the past 7 days
-- Documents: Manage all documents, view metadata, bulk delete
+- Analytics: Charts, logs, usage for the past week
+- Documents: Manage docs, view metadata, bulk delete
 
-## Tech stack
+## Stack
 
 - Next.js 16, React 19, TypeScript
 - Tailwind CSS v4
 - Browser localStorage
-- Lucide React icons
-- Token-based search algorithm
-- Client-side rendering
+- Lucide icons
+- Token search
+- Client-side
 
-## Installation
+## Setup
 
 ```bash
-cd docsearch
+cd frontend
 
 npm install
 # or
 pnpm install
-# or
-yarn install
 
 npm run dev
 # or
 pnpm dev
-# or
-yarn dev
 ```
 
-Open <http://localhost:3000> in your browser.
+Go to <http://localhost:3000>.
 
-## Usage
+## Using it
 
-### Upload documents
+### Upload
 
-1. Go to the upload page (home)
-2. Drag and drop a file or click to browse
-3. Supported: PDF, TXT, MD, DOCX (max 10MB)
-4. File is instantly available in chat
+1. Open home page
+2. Drag and drop or click to browse
+3. PDF, TXT, MD, DOCX only (10MB max)
+4. File shows up in chat immediately
 
-### Chat with documents
+### Chat
 
-1. Go to the chat page
-2. Ask a question (e.g., "What is this about?", "Explain X")
-3. View the answer with source citations
+1. Go to chat page
+2. Ask something like "What's this about?" or "Explain X"
+3. Get an answer with citations
 4. Click citations to see:
-   - Source document name
+   - Source file
    - Line number
-   - Original excerpt
-   - Relevance score (0-100%)
+   - Original text
+   - Relevance (0-100%)
 
-### Manage documents
+### Manage
 
-1. Go to admin dashboard
-2. Documents tab shows all uploads
-3. Delete individual files or clear all
-4. Analytics tab shows activity over the past 7 days
+1. Admin dashboard
+2. Documents tab lists everything
+3. Delete one or clear all
+4. Analytics shows last 7 days
 
-## Demo data
+## Demo
 
-Click "Load Demo Data" in the bottom-right of the home page to populate the system with sample documents and analytics for testing.
+Click "Load Demo Data" at the bottom of home to populate with samples.
 
-## File structure
+## Files
 
 ```
 ├── app/
-│   ├── layout.tsx           # Root layout
-│   ├── page.tsx             # Home/upload page
-│   ├── globals.css          # Global styles
+│   ├── layout.tsx        # Root
+│   ├── page.tsx          # Home/upload
+│   ├── globals.css       # Styles
 │   ├── chat/
-│   │   └── page.tsx         # Chat interface
+│   │   └── page.tsx      # Chat UI
 │   └── admin/
-│       └── page.tsx         # Admin dashboard
+│       └── page.tsx      # Dashboard
 ├── components/
-│   ├── upload-form.tsx      # File upload
-│   ├── document-list.tsx    # Document display
-│   ├── chat-message.tsx     # Chat messages
-│   ├── analytics-dashboard.tsx # Analytics
-│   └── demo-loader.tsx      # Demo data
+│   ├── upload-form.tsx   # Upload
+│   ├── document-list.tsx # Doc display
+│   ├── chat-message.tsx  # Messages
+│   ├── analytics-dashboard.tsx
+│   └── demo-loader.tsx
 ├── lib/
-│   ├── types.ts             # TypeScript types
-│   ├── storage.ts           # localStorage wrapper
-│   └── search.ts            # Search algorithm
-├── BACKEND_ENDPOINTS.md     # Backend API docs
-└── public/                  # Static files
+│   ├── types.ts          # Types
+│   ├── storage.ts        # localStorage
+│   └── search.ts         # Search
+└── public/
 ```
 
 ## Storage
 
-Everything is stored in browser localStorage:
+localStorage holds:
 
 - Documents (content, metadata, timestamps)
-- Analytics (event logs, search history)
-- Data persists until browser cache is cleared
+- Analytics (logs, search history)
 
-Max storage is typically 5-10MB depending on browser.
+Persists until you clear browser cache. Most browsers give 5-10MB.
 
 ## Components
 
 ### UploadForm
 
-Handles file uploads with drag-and-drop, validation, and status feedback.
+Drag-and-drop with validation and status.
 
 ### DocumentList
 
-Shows uploaded documents with metadata and delete buttons.
+Shows docs with metadata and delete.
 
 ### ChatMessage
 
-Renders chat messages with fade-in animations, source citations, line numbers, and relevance scores. Includes a loading indicator with animated dots.
+Messages with animations, citations, line numbers, relevance. Loading dots included.
 
 ### AnalyticsDashboard
 
-Shows usage stats, activity charts, and event logs including chat interactions.
+Stats, charts, logs including chat.
 
-## Search algorithm
+## Search
 
-Token-based matching:
+Token matching:
 
 - Documents are split into tokens
 - Matches ranked by term frequency
