@@ -176,12 +176,15 @@ export default function ChatPage() {
       });
     } catch (err) {
       console.error("Error asking question:", err);
+      const errorText = err instanceof Error ? err.message : "Unknown error";
 
-      // Show error message
+      // Show error message with helpful context
       const errorMessage: ChatMessageType = {
         id: `msg-${Date.now()}`,
         role: "assistant",
-        content: `Sorry, I encountered an error while processing your question. Please make sure the backend server is running. Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+        content: errorText.includes("Pathway") || errorText.includes("AI service")
+          ? "The AI service is currently starting up or temporarily unavailable. This usually happens when the Pathway RAG server is initializing. Please wait a moment and try again."
+          : `Sorry, I encountered an error: ${errorText}`,
         timestamp: Date.now(),
       };
 
@@ -190,9 +193,10 @@ export default function ChatPage() {
         return [...filtered, errorMessage];
       });
 
-      setError(
-        "Failed to get response from backend. Please check if the server is running.",
-      );
+      // Don't set persistent error banner for temporary issues
+      if (!errorText.includes("Pathway") && !errorText.includes("AI service")) {
+        setError("Failed to get response from backend.");
+      }
     } finally {
       setIsLoading(false);
     }

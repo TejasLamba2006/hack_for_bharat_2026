@@ -1,14 +1,14 @@
 /**
  * API client for Flask Proxy Server
- * All requests go through the proxy on port 9001 (no CORS issues!)
- * Proxy forwards RAG requests to Pathway server on port 9000
+ * All requests go through Next.js API routes to avoid CORS/mixed content issues
+ * The API routes proxy to the backend server
  */
 
 import type { DocumentFile } from "./types";
 
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://207.244.225.17:9001"
-).replace(/\/$/, "");
+// Use local API proxy to avoid CORS and mixed content issues
+// The proxy route forwards requests to the actual backend
+const API_BASE_URL = "/api/proxy";
 
 export interface AskQuestionRequest {
   prompt: string;
@@ -154,14 +154,25 @@ export async function askQuestion(
       }),
     });
 
+    const data = await response.json();
+    
     if (!response.ok) {
-      throw new Error(`Failed to ask question: ${response.statusText}`);
+      // Handle various backend errors with user-friendly messages
+      if (data.error === "Backend unavailable" || data.message?.includes("Pathway")) {
+        throw new Error("The AI service is currently starting up or unavailable. Please try again in a moment.");
+      }
+      throw new Error(data.message || "Failed to process your question. Please try again.");
     }
 
-    return response.json();
+    return data;
   } catch (error) {
-    console.warn("Backend unavailable:", error);
-    throw new Error("Backend service is currently unavailable. Please try again later.");
+    if (error instanceof Error && (
+      error.message.includes("AI service") || 
+      error.message.includes("Failed to process")
+    )) {
+      throw error;
+    }
+    throw new Error("The AI service is currently unavailable. Please try again in a moment.");
   }
 }
 
@@ -184,13 +195,18 @@ export async function retrieve(
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to retrieve documents: ${response.statusText}`);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      return {
+        results: [],
+        total_results: 0,
+        search_time_ms: 0,
+      };
     }
 
-    return response.json();
-  } catch (error) {
-    console.warn("Backend unavailable:", error);
+    return data;
+  } catch {
     return {
       results: [],
       total_results: 0,
@@ -216,14 +232,19 @@ export async function listDocuments(
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to list documents: ${response.statusText}`);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      // Return empty response when backend is unavailable
+      return {
+        documents: [],
+        total_count: 0,
+      };
     }
 
-    return response.json();
-  } catch (error) {
+    return data;
+  } catch {
     // Return empty response when backend is unavailable
-    console.warn("Backend unavailable, returning empty document list:", error);
     return {
       documents: [],
       total_count: 0,
@@ -341,14 +362,19 @@ export async function listFiles(): Promise<ListFilesResponse> {
       method: "GET",
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to list files: ${response.statusText}`);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      return {
+        files: [],
+        total_count: 0,
+        directory: "",
+        timestamp: new Date().toISOString(),
+      };
     }
 
-    return response.json();
-  } catch (error) {
-    // Return empty response when backend is unavailable
-    console.warn("Backend unavailable, returning empty file list:", error);
+    return data;
+  } catch {
     return {
       files: [],
       total_count: 0,
@@ -363,10 +389,15 @@ export async function listFiles(): Promise<ListFilesResponse> {
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
+    // Use local API health endpoint which proxies to backend
+    const response = await fetch("/api/health", {
       method: "GET",
     });
-    return response.ok;
+    if (response.ok) {
+      const data = await response.json();
+      return data.status === "connected";
+    }
+    return false;
   } catch {
     // Silently return false when backend is unavailable
     return false;
