@@ -367,8 +367,8 @@ export async function checkHealth(): Promise<boolean> {
       method: "GET",
     });
     return response.ok;
-  } catch (error) {
-    console.error("Backend health check failed:", error);
+  } catch {
+    // Silently return false when backend is unavailable
     return false;
   }
 }
