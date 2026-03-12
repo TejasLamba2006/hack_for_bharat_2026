@@ -31,7 +31,7 @@ echo "✅ uv is ready"
 echo ""
 
 # Check if virtual environment exists
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
     echo "Creating virtual environment..."
     uv venv
     echo "✅ Virtual environment created"
@@ -40,8 +40,8 @@ fi
 
 # Activate virtual environment
 echo "Activating virtual environment..."
-if [ -f "venv/bin/activate" ]; then
-    . venv/bin/activate
+if [ -f ".venv/bin/activate" ]; then
+    . .venv/bin/activate
 else
     echo "❌ Error: Virtual environment activation script not found."
     exit 1
