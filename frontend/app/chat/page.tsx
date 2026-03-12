@@ -35,6 +35,7 @@ export default function ChatPage() {
   const [currentSources, setCurrentSources] = useState<SourceCitation[]>([]);
   const [showDocumentPanel, setShowDocumentPanel] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Check backend health
@@ -108,6 +109,11 @@ export default function ChatPage() {
       console.log("RAG Response:", response); // Debug log
       console.log("Context docs:", response.context_docs); // Debug log
       console.log("Sources:", response.sources); // Debug log
+      console.log(
+        "Sources type:",
+        typeof response.sources,
+        Array.isArray(response.sources),
+      ); // Debug log
 
       // Check if response has the expected structure
       if (!response?.response) {
@@ -142,24 +148,81 @@ export default function ChatPage() {
           );
 
           console.log(`Doc ${citationNumber}:`, doc, "Used:", isUsed); // Debug log
+          console.log(`  - text:`, doc.text?.substring(0, 100)); // Debug log
+          console.log(`  - metadata:`, doc.metadata); // Debug log
+          console.log(`  - path:`, doc.path); // Debug log
 
           // Only include sources that are actually cited in the answer
           if (isUsed) {
-            // Extract meaningful excerpt (first 200 chars)
+            // Extract meaningful excerpt (longer for more depth)
             const text = doc.text || doc.content || doc.excerpt || "";
+
+            // Check if text is valid and substantial
+            if (!text || text.trim().length < 10) {
+              console.warn(
+                `  - Skipping doc ${citationNumber}: text too short or empty`,
+              );
+              continue; // Skip this document if text is empty or too short
+            }
+
             const excerpt =
-              text.substring(0, 200) + (text.length > 200 ? "..." : "");
+              text.substring(0, 400) + (text.length > 400 ? "..." : "");
+
+            // Extract document name from metadata path (get filename only)
+            let documentName = "Unknown Document";
+
+            // Try various possible fields for document path/name
+            const possiblePaths = [
+              doc.metadata?.path,
+              doc.metadata?.file,
+              doc.metadata?.filename,
+              doc.metadata?.source,
+              doc.path,
+              doc.file,
+              doc.filename,
+              doc.source,
+              doc.document_name,
+              doc.name,
+            ];
+
+            for (const possiblePath of possiblePaths) {
+              if (possiblePath && typeof possiblePath === "string") {
+                // Get the filename from the path
+                const pathParts = possiblePath.split(/[\\\/]/);
+                const filename = pathParts[pathParts.length - 1];
+                if (filename && filename !== "") {
+                  documentName = filename;
+                  console.log(`  - Using document name from field:`, filename); // Debug
+                  break;
+                }
+              }
+            }
+
+            console.log(`  - Final document name:`, documentName); // Debug
+
+            // Get page number or chunk information
+            let pageNum = 0;
+            if (
+              doc.metadata?.page !== undefined &&
+              doc.metadata.page !== null
+            ) {
+              pageNum = Number(doc.metadata.page);
+            } else if (doc.page !== undefined && doc.page !== null) {
+              pageNum = Number(doc.page);
+            } else if (doc.metadata?.chunk !== undefined) {
+              pageNum = Number(doc.metadata.chunk);
+            } else if (doc.metadata?.line !== undefined) {
+              pageNum = Number(doc.metadata.line);
+            }
+
+            console.log(`  - Final page number:`, pageNum); // Debug
 
             sources.push({
-              documentId: `doc-${citationNumber}`,
-              documentName:
-                doc.metadata?.path ||
-                doc.path ||
-                doc.document_name ||
-                `Document ${citationNumber}`,
-              lineNumber: doc.metadata?.page || doc.page || 0,
+              documentId: doc.id || `doc-${citationNumber}`,
+              documentName: documentName,
+              lineNumber: pageNum,
               excerpt: excerpt,
-              relevance: 1 - idx * 0.1, // Decreasing relevance score
+              relevance: 1 - idx * 0.05, // Gentler relevance decline
             });
           }
         });
@@ -196,6 +259,11 @@ export default function ChatPage() {
           sourceCount: sources.length,
         },
       });
+
+      // Focus input after response is received
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     } catch (err) {
       console.error("Error asking question:", err);
 
@@ -366,6 +434,7 @@ export default function ChatPage() {
                 <div className="max-w-3xl mx-auto">
                   <form onSubmit={handleSendMessage} className="flex gap-3">
                     <input
+                      ref={inputRef}
                       type="text"
                       placeholder={
                         !backendAvailable
@@ -376,6 +445,7 @@ export default function ChatPage() {
                       onChange={(e) => setInput(e.target.value)}
                       disabled={!backendAvailable || isLoading}
                       className="flex-1 px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      autoFocus
                     />
                     <button
                       type="submit"

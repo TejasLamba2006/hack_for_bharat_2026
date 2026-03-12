@@ -77,22 +77,31 @@ export function MessageWithCitations({
                 </button>
               </TooltipTrigger>
               <TooltipContent
-                className="max-w-sm p-3 bg-card border border-border shadow-lg"
+                className="max-w-md p-4 bg-card border border-border shadow-xl"
                 side="top"
               >
-                <div className="space-y-1">
-                  <div className="font-semibold text-sm text-foreground">
-                    {source.documentName}
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold text-sm text-foreground truncate flex-1">
+                      📄 {source.documentName}
+                    </div>
+                    <div className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium whitespace-nowrap">
+                      {(source.relevance * 100).toFixed(0)}%
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Page {source.lineNumber} •{" "}
-                    {(source.relevance * 100).toFixed(0)}% relevant
+                  {source.lineNumber > 0 && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      📍{" "}
+                      {source.lineNumber > 100
+                        ? `Chunk ${source.lineNumber}`
+                        : `Page ${source.lineNumber}`}
+                    </div>
+                  )}
+                  <div className="text-xs leading-relaxed mt-2 text-muted-foreground border-l-2 border-primary/30 pl-3 py-1">
+                    <span className="italic">"{source.excerpt}"</span>
                   </div>
-                  <div className="text-xs italic mt-2 line-clamp-3 text-muted-foreground">
-                    "{source.excerpt}"
-                  </div>
-                  <div className="text-xs text-primary font-medium mt-2">
-                    Click to view in document
+                  <div className="text-xs text-primary font-medium mt-3 pt-2 border-t border-border flex items-center gap-1">
+                    👆 Click to view full context
                   </div>
                 </div>
               </TooltipContent>

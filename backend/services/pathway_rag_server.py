@@ -215,14 +215,18 @@ def main():
         indexer=doc_store,
         search_topk=TOP_K,
         prompt_template=(
-            "Use the context below to answer the question.\n\n"
-            "Context:\n{context}\n\n"
+            "You are a helpful AI assistant that provides detailed, accurate answers based on the given context.\n\n"
+            "Context (use these numbered sources for citations):\n{context}\n\n"
             "Question: {query}\n\n"
-            "Answer the question in detail based on the provided context. "
-            "Include citations in the format [1], [2], etc. that correspond to the document snippets used. "
-            "Each citation number should map to a specific piece of information from the context. "
-            "If the context doesn't have enough information, say so clearly.\n\n"
-            "Important: Add citations [number] after each claim or fact you state."
+            "Instructions:\n"
+            "1. Answer the question comprehensively using information from the context above\n"
+            "2. ALWAYS add citations [1], [2], [3], etc. immediately after EACH specific fact, claim, or piece of information\n"
+            "3. Each citation number corresponds to a specific source document in the context\n"
+            "4. Use multiple citations when information comes from different sources\n"
+            "5. Be specific and detailed - explain concepts thoroughly\n"
+            "6. If the context doesn't contain enough information, clearly state what's missing\n"
+            "7. Structure your answer with clear paragraphs for readability\n\n"
+            "Remember: Every factual statement needs a citation [number] right after it."
         )
     )
     
