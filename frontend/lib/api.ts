@@ -154,12 +154,21 @@ export async function askQuestion(
       }),
     });
 
+    const data = await response.json();
+    
     if (!response.ok) {
-      throw new Error(`Failed to ask question: ${response.statusText}`);
+      // Check if it's a proxy error
+      if (data.error === "Backend unavailable") {
+        throw new Error("Backend service is currently unavailable. Please try again later.");
+      }
+      throw new Error(data.message || `Failed to ask question: ${response.statusText}`);
     }
 
-    return response.json();
+    return data;
   } catch (error) {
+    if (error instanceof Error && error.message.includes("Backend service")) {
+      throw error;
+    }
     console.warn("Backend unavailable:", error);
     throw new Error("Backend service is currently unavailable. Please try again later.");
   }
@@ -184,13 +193,18 @@ export async function retrieve(
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to retrieve documents: ${response.statusText}`);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      return {
+        results: [],
+        total_results: 0,
+        search_time_ms: 0,
+      };
     }
 
-    return response.json();
-  } catch (error) {
-    console.warn("Backend unavailable:", error);
+    return data;
+  } catch {
     return {
       results: [],
       total_results: 0,
@@ -216,14 +230,19 @@ export async function listDocuments(
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to list documents: ${response.statusText}`);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      // Return empty response when backend is unavailable
+      return {
+        documents: [],
+        total_count: 0,
+      };
     }
 
-    return response.json();
-  } catch (error) {
+    return data;
+  } catch {
     // Return empty response when backend is unavailable
-    console.warn("Backend unavailable, returning empty document list:", error);
     return {
       documents: [],
       total_count: 0,
@@ -341,14 +360,19 @@ export async function listFiles(): Promise<ListFilesResponse> {
       method: "GET",
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to list files: ${response.statusText}`);
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      return {
+        files: [],
+        total_count: 0,
+        directory: "",
+        timestamp: new Date().toISOString(),
+      };
     }
 
-    return response.json();
-  } catch (error) {
-    // Return empty response when backend is unavailable
-    console.warn("Backend unavailable, returning empty file list:", error);
+    return data;
+  } catch {
     return {
       files: [],
       total_count: 0,
