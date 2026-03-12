@@ -22,13 +22,17 @@ fi
 
 # Check Python version
 echo "Checking Python version..."
-PYTHON_CMD="python3"
-if ! command -v python3 &> /dev/null; then
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_CMD="python3"
+elif command -v python >/dev/null 2>&1; then
     PYTHON_CMD="python"
+else
+    echo "❌ Error: Python not found. Please install Python 3."
+    exit 1
 fi
 
 PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
-echo "✅ Found Python $PYTHON_VERSION"
+echo "✅ Found Python ($PYTHON_CMD): $PYTHON_VERSION"
 echo ""
 
 # Check if virtual environment exists
@@ -41,7 +45,12 @@ fi
 
 # Activate virtual environment
 echo "Activating virtual environment..."
-source venv/bin/activate
+if [ -f "venv/bin/activate" ]; then
+    . venv/bin/activate
+else
+    echo "❌ Error: Virtual environment activation script not found."
+    exit 1
+fi
 echo "✅ Virtual environment activated"
 echo ""
 
