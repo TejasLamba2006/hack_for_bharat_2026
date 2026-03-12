@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -27,50 +27,33 @@ export function MessageWithCitations({
   onCitationClick,
   activeCitation 
 }: MessageWithCitationsProps) {
-  // Process content to replace citations with interactive elements
-  const processedContent = useMemo(() => {
-    if (!sources || sources.length === 0) {
-      return content;
-    }
 
-    // Replace [1], [2], etc. with special markers we can process
-    let processed = content;
+  // Split a string on [n] citation markers and return mixed text/badge array
+  const renderWithCitations = (text: string): React.ReactNode => {
+    if (!sources || sources.length === 0) return text;
+
     const citationRegex = /\[(\d+)\]/g;
-    
-    // We'll use a custom component for citations in markdown
-    return processed;
-  }, [content, sources]);
-
-  // Custom renderer for text that includes citation tooltips
-  const renderWithCitations = (text: string) => {
-    if (!sources || sources.length === 0) {
-      return text;
-    }
-
-    const parts = [];
-    const citationRegex = /\[(\d+)\]/g;
+    const parts: React.ReactNode[] = [];
     let lastIndex = 0;
-    let match;
+    let match: RegExpExecArray | null;
 
     while ((match = citationRegex.exec(text)) !== null) {
-      // Add text before citation
       if (match.index > lastIndex) {
         parts.push(text.substring(lastIndex, match.index));
       }
 
-      // Add citation with tooltip
       const citationNum = parseInt(match[1]);
       const source = sources[citationNum - 1];
 
       if (source) {
         const isActive = activeCitation === citationNum;
         parts.push(
-          <TooltipProvider key={`citation-${match.index}`}>
+          <TooltipProvider key={`citation-${match.index}-${citationNum}`}>
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onCitationClick?.(citationNum)}
-                  className={`citation-badge ${isActive ? 'bg-primary text-primary-foreground scale-110' : ''}`}
+                  className={`citation-badge ${isActive ? 'bg-primary! text-primary-foreground! scale-110' : ''}`}
                   aria-label={`View source ${citationNum}`}
                 >
                   {citationNum}
@@ -80,7 +63,7 @@ export function MessageWithCitations({
                 <div className="space-y-1">
                   <div className="font-semibold text-sm text-foreground">{source.documentName}</div>
                   <div className="text-xs text-muted-foreground">
-                    Page {source.lineNumber} • {(source.relevance * 100).toFixed(0)}% relevant
+                    Page {source.pageNumber ?? source.lineNumber} • {(source.relevance * 100).toFixed(0)}% relevant
                   </div>
                   <div className="text-xs italic mt-2 line-clamp-3 text-muted-foreground">
                     "{source.excerpt}"
@@ -94,17 +77,30 @@ export function MessageWithCitations({
           </TooltipProvider>
         );
       }
-      // If no source exists, skip the citation marker entirely (don't render orphaned citations)
 
       lastIndex = citationRegex.lastIndex;
     }
 
-    // Add remaining text
     if (lastIndex < text.length) {
       parts.push(text.substring(lastIndex));
     }
 
-    return parts.length > 0 ? parts : text;
+    return parts.length > 0 ? <>{parts}</> : text;
+  };
+
+  // Recursively walk React children, replacing text nodes that contain [n] markers
+  const processChildren = (children: React.ReactNode): React.ReactNode => {
+    return React.Children.map(children, (child) => {
+      if (typeof child === 'string') {
+        return renderWithCitations(child);
+      }
+      if (React.isValidElement(child) && child.props.children) {
+        return React.cloneElement(child as React.ReactElement<any>, {
+          children: processChildren(child.props.children),
+        });
+      }
+      return child;
+    });
   };
 
   return (
@@ -113,11 +109,11 @@ export function MessageWithCitations({
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight, rehypeRaw]}
         components={{
-          // Custom styling for markdown elements
           p: ({ children }) => (
-            <p className="mb-2 last:mb-0">
-              {typeof children === 'string' ? renderWithCitations(children) : children}
-            </p>
+            <p className="mb-2 last:mb-0">{processChildren(children)}</p>
+          ),
+          li: ({ children }) => (
+            <li>{processChildren(children)}</li>
           ),
           a: ({ href, children }) => (
             <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
@@ -163,8 +159,6 @@ export function MessageWithCitations({
               {children}
             </td>
           ),
-          // Handle text nodes with citations
-          text: ({ value }) => <>{renderWithCitations(value)}</>,
         }}
       >
         {content}
