@@ -140,7 +140,8 @@ export default function ChatPage() {
 
       // Create sources from context documents with citation mapping
       if (contextDocs.length > 0) {
-        contextDocs.forEach((doc: any, idx: number) => {
+        for (let idx = 0; idx < contextDocs.length; idx++) {
+          const doc = contextDocs[idx];
           const citationNumber = idx + 1;
           // Check if this citation is actually used in the answer
           const isUsed = citationMatches.some(
@@ -225,7 +226,7 @@ export default function ChatPage() {
               relevance: 1 - idx * 0.05, // Gentler relevance decline
             });
           }
-        });
+        }
       }
 
       console.log("Final sources:", sources); // Debug log
