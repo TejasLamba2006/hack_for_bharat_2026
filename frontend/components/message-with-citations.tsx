@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -17,9 +17,16 @@ import 'highlight.js/styles/github-dark.css';
 interface MessageWithCitationsProps {
   content: string;
   sources?: SourceCitation[];
+  onCitationClick?: (citationNum: number) => void;
+  activeCitation?: number | null;
 }
 
-export function MessageWithCitations({ content, sources }: MessageWithCitationsProps) {
+export function MessageWithCitations({ 
+  content, 
+  sources, 
+  onCitationClick,
+  activeCitation 
+}: MessageWithCitationsProps) {
   // Process content to replace citations with interactive elements
   const processedContent = useMemo(() => {
     if (!sources || sources.length === 0) {
@@ -56,22 +63,30 @@ export function MessageWithCitations({ content, sources }: MessageWithCitationsP
       const source = sources[citationNum - 1];
 
       if (source) {
+        const isActive = activeCitation === citationNum;
         parts.push(
           <TooltipProvider key={`citation-${match.index}`}>
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-primary-foreground bg-primary rounded-full cursor-help hover:bg-primary/90 transition-colors mx-0.5">
+                <button
+                  onClick={() => onCitationClick?.(citationNum)}
+                  className={`citation-badge ${isActive ? 'bg-primary text-primary-foreground scale-110' : ''}`}
+                  aria-label={`View source ${citationNum}`}
+                >
                   {citationNum}
-                </span>
+                </button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-sm p-3" side="top">
+              <TooltipContent className="max-w-sm p-3 bg-card border border-border shadow-lg" side="top">
                 <div className="space-y-1">
-                  <div className="font-semibold text-sm">{source.documentName}</div>
+                  <div className="font-semibold text-sm text-foreground">{source.documentName}</div>
                   <div className="text-xs text-muted-foreground">
                     Page {source.lineNumber} • {(source.relevance * 100).toFixed(0)}% relevant
                   </div>
-                  <div className="text-xs italic mt-2 line-clamp-3">
+                  <div className="text-xs italic mt-2 line-clamp-3 text-muted-foreground">
                     "{source.excerpt}"
+                  </div>
+                  <div className="text-xs text-primary font-medium mt-2">
+                    Click to view in document
                   </div>
                 </div>
               </TooltipContent>

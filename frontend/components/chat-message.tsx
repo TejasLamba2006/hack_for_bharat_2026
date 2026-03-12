@@ -1,15 +1,17 @@
 'use client';
 
-import { ChatMessage as ChatMessageType, SourceCitation } from '@/lib/types';
+import { ChatMessage as ChatMessageType } from '@/lib/types';
 import { FileText, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { MessageWithCitations } from './message-with-citations';
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  onCitationClick?: (citationNum: number) => void;
+  activeCitation?: number | null;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onCitationClick, activeCitation }: ChatMessageProps) {
   const [expandedSources, setExpandedSources] = useState(false);
 
   const isUser = message.role === 'user';
@@ -69,6 +71,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 <MessageWithCitations 
                   content={message.content} 
                   sources={message.sources}
+                  onCitationClick={onCitationClick}
+                  activeCitation={activeCitation}
                 />
               )}
             </div>

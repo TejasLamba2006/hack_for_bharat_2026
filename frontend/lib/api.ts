@@ -143,21 +143,26 @@ export async function askQuestion(
   filters?: string | null,
   model?: string | null,
 ): Promise<AskQuestionResponse> {
-  const response = await fetch(`${API_BASE_URL}/v1/pw_ai_answer`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt: prompt,
-    }),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/pw_ai_answer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to ask question: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to ask question: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.warn("Backend unavailable:", error);
+    throw new Error("Backend service is currently unavailable. Please try again later.");
   }
-
-  return response.json();
 }
 
 /**
@@ -167,22 +172,31 @@ export async function retrieve(
   query: string,
   k: number = 5,
 ): Promise<RetrieveResponse> {
-  const response = await fetch(`${API_BASE_URL}/v1/retrieve`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      query,
-      k,
-    }),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/retrieve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        k,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to retrieve documents: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to retrieve documents: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.warn("Backend unavailable:", error);
+    return {
+      results: [],
+      total_results: 0,
+      search_time_ms: 0,
+    };
   }
-
-  return response.json();
 }
 
 /**
@@ -191,21 +205,30 @@ export async function retrieve(
 export async function listDocuments(
   filter_keys?: Record<string, any> | null,
 ): Promise<ListDocumentsResponse> {
-  const response = await fetch(`${API_BASE_URL}/v1/pw_list_documents`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      filter_keys: filter_keys || null,
-    }),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/pw_list_documents`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filter_keys: filter_keys || null,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to list documents: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to list documents: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // Return empty response when backend is unavailable
+    console.warn("Backend unavailable, returning empty document list:", error);
+    return {
+      documents: [],
+      total_count: 0,
+    };
   }
-
-  return response.json();
 }
 
 /**
@@ -241,31 +264,40 @@ export async function uploadFile(
   filename: string,
   file: File,
 ): Promise<UploadFileResponse> {
-  // Convert file to base64
-  const arrayBuffer = await file.arrayBuffer();
-  const base64 = btoa(
-    new Uint8Array(arrayBuffer).reduce(
-      (data, byte) => data + String.fromCharCode(byte),
-      "",
-    ),
-  );
+  try {
+    // Convert file to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = btoa(
+      new Uint8Array(arrayBuffer).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        "",
+      ),
+    );
 
-  const response = await fetch(`${API_BASE_URL}/v1/upload`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      filename,
-      content: base64,
-    }),
-  });
+    const response = await fetch(`${API_BASE_URL}/v1/upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filename,
+        content: base64,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to upload file: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to upload file: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.warn("Backend unavailable:", error);
+    return {
+      success: false,
+      message: "Backend service is currently unavailable. Please try again later.",
+      error: "Network error",
+    };
   }
-
-  return response.json();
 }
 
 /**
@@ -274,36 +306,56 @@ export async function uploadFile(
 export async function deleteFile(
   filename: string,
 ): Promise<DeleteFileResponse> {
-  const response = await fetch(`${API_BASE_URL}/v1/delete`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      filename,
-    }),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/delete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filename,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to delete file: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to delete file: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.warn("Backend unavailable:", error);
+    return {
+      success: false,
+      message: "Backend service is currently unavailable. Please try again later.",
+      error: "Network error",
+    };
   }
-
-  return response.json();
 }
 
 /**
  * List all files in the backend data_room
  */
 export async function listFiles(): Promise<ListFilesResponse> {
-  const response = await fetch(`${API_BASE_URL}/v1/files`, {
-    method: "GET",
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/files`, {
+      method: "GET",
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to list files: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to list files: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    // Return empty response when backend is unavailable
+    console.warn("Backend unavailable, returning empty file list:", error);
+    return {
+      files: [],
+      total_count: 0,
+      directory: "",
+      timestamp: new Date().toISOString(),
+    };
   }
-
-  return response.json();
 }
 
 /**
@@ -315,8 +367,8 @@ export async function checkHealth(): Promise<boolean> {
       method: "GET",
     });
     return response.ok;
-  } catch (error) {
-    console.error("Backend health check failed:", error);
+  } catch {
+    // Silently return false when backend is unavailable
     return false;
   }
 }
