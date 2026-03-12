@@ -16,6 +16,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   Settings,
+  DollarSign,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -321,6 +322,13 @@ export default function ChatPage() {
               <span className="hidden sm:inline">Chat</span>
             </Link>
             <Link
+              href="/pricing"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium"
+            >
+              <DollarSign className="w-4 h-4" />
+              <span className="hidden sm:inline">Pricing</span>
+            </Link>
+            <Link
               href="/admin"
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium"
             >
@@ -370,8 +378,9 @@ export default function ChatPage() {
           >
             <div className="flex flex-col h-full">
               {/* Messages Area */}
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 h-full">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                  {/* Backend Error Alert */}
                   {/* Backend Error Alert */}
                   {error && (
                     <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">

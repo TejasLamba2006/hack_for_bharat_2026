@@ -5,7 +5,13 @@ import { DocumentFile } from "@/lib/types";
 import { storage } from "@/lib/storage";
 import { UploadForm } from "@/components/upload-form";
 import { DocumentList } from "@/components/document-list";
-import { Upload, FileText, MessageCircle, RefreshCw } from "lucide-react";
+import {
+  Upload,
+  FileText,
+  MessageCircle,
+  RefreshCw,
+  DollarSign,
+} from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 
@@ -65,7 +71,9 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">DocSearch</h1>
-              <p className="text-xs text-sidebar-foreground/70">Document Q&A with Smart Citations</p>
+              <p className="text-xs text-sidebar-foreground/70">
+                Document Q&A with Smart Citations
+              </p>
             </div>
           </div>
           <nav className="flex items-center gap-2">
@@ -82,6 +90,13 @@ export default function Home() {
             >
               <MessageCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Chat</span>
+            </Link>
+            <Link
+              href="/pricing"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium"
+            >
+              <DollarSign className="w-4 h-4" />
+              <span className="hidden sm:inline">Pricing</span>
             </Link>
             <Link
               href="/admin"
