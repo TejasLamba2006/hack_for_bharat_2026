@@ -18,6 +18,7 @@ export interface SearchResult {
 export interface SourceCitation {
   documentId: string;
   documentName: string;
+  pageNumber: number;
   lineNumber: number;
   excerpt: string;
   relevance: number;
