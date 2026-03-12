@@ -121,27 +121,39 @@ export default function ChatPage() {
       // Citations are in format [1], [2], etc.
       const citationRegex = /\[(\d+)\]/g;
       const citationMatches = [...answerText.matchAll(citationRegex)];
-      
+      // Collect the unique citation numbers actually used in the answer
+      const usedCitationNums = new Set(citationMatches.map(m => parseInt(m[1])));
+
       // Create sources from context documents with citation mapping
       if (contextDocs.length > 0) {
         contextDocs.forEach((doc, idx) => {
           const citationNumber = idx + 1;
-          // Check if this citation is actually used in the answer
-          const isUsed = citationMatches.some(match => parseInt(match[1]) === citationNumber);
-          
+
           // Only include sources that are actually cited in the answer
-          if (isUsed) {
-            // Extract meaningful excerpt (first 200 chars)
-            const excerpt = doc.text.substring(0, 200) + (doc.text.length > 200 ? '...' : '');
-            
-            sources.push({
-              documentId: `doc-${citationNumber}`,
-              documentName: doc.metadata?.path || `Document ${citationNumber}`,
-              lineNumber: doc.metadata?.page || 0,
-              excerpt: excerpt,
-              relevance: 1 - (idx * 0.1), // Decreasing relevance score
-            });
-          }
+          if (!usedCitationNums.has(citationNumber)) return;
+
+          // Strip leading path prefix (e.g. "data_room/") from document name
+          const rawPath: string = doc.metadata?.path || `Document ${citationNumber}`;
+          const documentName = rawPath.replace(/^.*[\\/]/, "");
+
+          // Page numbers from Pathway are 0-indexed — convert to 1-indexed
+          const rawPage = doc.metadata?.page ?? doc.metadata?.page_number ?? null;
+          const pageNumber = rawPage !== null ? Number(rawPage) + 1 : 1;
+
+          // Extract a clean, meaningful excerpt (skip very short fragments)
+          const rawText: string = doc.text || "";
+          const excerpt = rawText.length > 250
+            ? rawText.substring(0, 247) + "..."
+            : rawText;
+
+          sources.push({
+            documentId: `doc-${citationNumber}`,
+            documentName,
+            pageNumber,
+            lineNumber: pageNumber,
+            excerpt,
+            relevance: Math.max(0.5, 1 - idx * 0.08),
+          });
         });
       }
 
