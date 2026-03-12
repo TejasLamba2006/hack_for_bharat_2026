@@ -57,34 +57,37 @@ export default function Home() {
         }}
       /> */}
       {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary rounded-lg">
-              <FileText className="w-5 h-5 text-primary-foreground" />
+      <header className="border-b border-border bg-sidebar text-sidebar-foreground sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-sidebar-accent rounded-lg">
+              <FileText className="w-5 h-5 text-sidebar-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">DocSearch</h1>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">DocSearch</h1>
+              <p className="text-xs text-sidebar-foreground/70">Document Q&A with Smart Citations</p>
+            </div>
           </div>
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-2">
             <Link
               href="/"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-colors text-sm font-medium"
             >
               <Upload className="w-4 h-4" />
-              Upload
+              <span className="hidden sm:inline">Upload</span>
             </Link>
             <Link
               href="/chat"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-foreground hover:bg-accent transition-colors font-medium"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium"
             >
               <MessageCircle className="w-4 h-4" />
-              Chat
+              <span className="hidden sm:inline">Chat</span>
             </Link>
             <Link
               href="/admin"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-foreground hover:bg-accent transition-colors font-medium"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium"
             >
-              Admin
+              <span className="hidden sm:inline">Admin</span>
             </Link>
           </nav>
         </div>
