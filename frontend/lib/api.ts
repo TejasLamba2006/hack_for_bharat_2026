@@ -27,7 +27,15 @@ export interface ContextDocument {
 
 export interface AskQuestionResponse {
   response: string;
-  context_docs?: ContextDocument[];
+  sources?: Source[];
+}
+
+export interface Source {
+  documentName: string;
+  pageNumber: number;
+  lineNumber: string;
+  excerpt: string;
+  relevance: number;
 }
 
 export interface RetrieveRequest {
