@@ -124,7 +124,9 @@ export interface ListFilesResponse {
 /**
  * Convert API file response to DocumentFile format
  */
-export function convertToDocumentFiles(response: ListFilesResponse): DocumentFile[] {
+export function convertToDocumentFiles(
+  response: ListFilesResponse,
+): DocumentFile[] {
   return response.files.map((file) => ({
     id: file.filename,
     name: file.filename,
@@ -151,6 +153,9 @@ export async function askQuestion(
       },
       body: JSON.stringify({
         prompt: prompt,
+        return_context_docs: true,
+        filters: filters,
+        model: model,
       }),
     });
 
@@ -161,7 +166,9 @@ export async function askQuestion(
     return response.json();
   } catch (error) {
     console.warn("Backend unavailable:", error);
-    throw new Error("Backend service is currently unavailable. Please try again later.");
+    throw new Error(
+      "Backend service is currently unavailable. Please try again later.",
+    );
   }
 }
 
@@ -294,7 +301,8 @@ export async function uploadFile(
     console.warn("Backend unavailable:", error);
     return {
       success: false,
-      message: "Backend service is currently unavailable. Please try again later.",
+      message:
+        "Backend service is currently unavailable. Please try again later.",
       error: "Network error",
     };
   }
@@ -326,7 +334,8 @@ export async function deleteFile(
     console.warn("Backend unavailable:", error);
     return {
       success: false,
-      message: "Backend service is currently unavailable. Please try again later.",
+      message:
+        "Backend service is currently unavailable. Please try again later.",
       error: "Network error",
     };
   }
