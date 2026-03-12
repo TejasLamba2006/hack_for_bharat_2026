@@ -471,9 +471,35 @@ def proxy_ai_answer():
             return_context_docs=return_context
         )
         
-        # The response from RAGClient already has the correct format
-        # It returns: {"response": "...", "context_docs": [...]} when return_context_docs=True
-        # Or just {"response": "..."} when return_context_docs=False
+        # Transform response to match required schema
+        # The frontend expects "sources" array instead of "context_docs"
+        if return_context and 'context_docs' in response:
+            sources = []
+            for doc in response['context_docs']:
+                metadata = doc.get('metadata', {})
+                
+                # Extract filename from path if needed
+                file_path = metadata.get('path', '')
+                filename = os.path.basename(file_path) if file_path else "Unknown"
+                
+                # Try to find page number in various common keys
+                page_num = metadata.get('page_number') or metadata.get('page') or 1
+                
+                source = {
+                    "documentName": filename,
+                    "pageNumber": page_num,
+                    "lineNumber": str(metadata.get('line_number', "N/A")),
+                    "excerpt": doc.get('text', '').strip(),
+                    "relevance": metadata.get('relevance', 0.95)  # Default high relevance for retrieved docs
+                }
+                sources.append(source)
+            
+            response['sources'] = sources
+            if 'context_docs' in response:
+                del response['context_docs']
+        else:
+            response['sources'] = []
+            
         return jsonify(response)
         
     except Exception as e:
