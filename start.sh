@@ -55,6 +55,16 @@ uv pip install -r requirements.txt
 echo "✅ Dependencies installed"
 echo ""
 
+# Check for system dependencies (Linux only)
+if [ "$(uname)" = "Linux" ] && [ "$(id -u)" = "0" ]; then
+    if command -v apt-get >/dev/null; then
+        echo "Installing system libraries for OpenCV..."
+        apt-get update && apt-get install -y libgl1 libglib2.0-0
+        echo "✅ System libraries installed"
+    fi
+    echo ""
+fi
+
 # Create data directory if it doesn't exist
 mkdir -p data_room
 echo "✅ data_room directory ready"
