@@ -6,16 +6,16 @@ import { storage } from "@/lib/storage";
 import { api } from "@/lib/api";
 import { ChatMessage } from "@/components/chat-message";
 import { DocumentViewer } from "@/components/document-viewer";
-import { 
-  FileText, 
-  Send, 
-  Loader2, 
-  AlertCircle, 
-  Upload, 
+import {
+  FileText,
+  Send,
+  Loader2,
+  AlertCircle,
+  Upload,
   MessageCircle,
   PanelLeftClose,
   PanelLeft,
-  Settings
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -58,7 +58,9 @@ export default function ChatPage() {
 
   // Update current sources when messages change
   useEffect(() => {
-    const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant' && m.sources);
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && m.sources);
     if (lastAssistantMessage?.sources) {
       setCurrentSources(lastAssistantMessage.sources);
     }
@@ -103,16 +105,24 @@ export default function ChatPage() {
       // Call backend API for AI answer
       const response = await api.askQuestion(currentInput);
 
+      console.log("RAG Response:", response); // Debug log
+      console.log("Context docs:", response.context_docs); // Debug log
+      console.log("Sources:", response.sources); // Debug log
+
       // Check if response has the expected structure
       if (!response?.response) {
         throw new Error("Invalid response from backend");
       }
 
-      // Backend now returns raw RAG result with optional context_docs
+      // Backend now returns raw RAG result with optional context_docs or sources
       const ragResult = response.response;
-      const contextDocs = response.context_docs || [];
+      // Try both 'sources' and 'context_docs' fields (Pathway may use either)
+      const contextDocs = response.sources || response.context_docs || [];
       let answerText = "";
       const sources: SourceCitation[] = [];
+
+      console.log("Number of context docs:", contextDocs.length); // Debug log
+      console.log("First context doc:", contextDocs[0]); // Debug log to see structure
 
       // Extract answer from the result
       answerText = String(ragResult);
@@ -121,29 +131,41 @@ export default function ChatPage() {
       // Citations are in format [1], [2], etc.
       const citationRegex = /\[(\d+)\]/g;
       const citationMatches = [...answerText.matchAll(citationRegex)];
-      
+
       // Create sources from context documents with citation mapping
       if (contextDocs.length > 0) {
-        contextDocs.forEach((doc, idx) => {
+        contextDocs.forEach((doc: any, idx: number) => {
           const citationNumber = idx + 1;
           // Check if this citation is actually used in the answer
-          const isUsed = citationMatches.some(match => parseInt(match[1]) === citationNumber);
-          
+          const isUsed = citationMatches.some(
+            (match) => Number.parseInt(match[1]) === citationNumber,
+          );
+
+          console.log(`Doc ${citationNumber}:`, doc, "Used:", isUsed); // Debug log
+
           // Only include sources that are actually cited in the answer
           if (isUsed) {
             // Extract meaningful excerpt (first 200 chars)
-            const excerpt = doc.text.substring(0, 200) + (doc.text.length > 200 ? '...' : '');
-            
+            const text = doc.text || doc.content || doc.excerpt || "";
+            const excerpt =
+              text.substring(0, 200) + (text.length > 200 ? "..." : "");
+
             sources.push({
               documentId: `doc-${citationNumber}`,
-              documentName: doc.metadata?.path || `Document ${citationNumber}`,
-              lineNumber: doc.metadata?.page || 0,
+              documentName:
+                doc.metadata?.path ||
+                doc.path ||
+                doc.document_name ||
+                `Document ${citationNumber}`,
+              lineNumber: doc.metadata?.page || doc.page || 0,
               excerpt: excerpt,
-              relevance: 1 - (idx * 0.1), // Decreasing relevance score
+              relevance: 1 - idx * 0.1, // Decreasing relevance score
             });
           }
         });
       }
+
+      console.log("Final sources:", sources); // Debug log
 
       const assistantMessage: ChatMessageType = {
         id: `msg-${Date.now()}`,
@@ -209,7 +231,9 @@ export default function ChatPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">DocSearch</h1>
-              <p className="text-xs text-sidebar-foreground/70">Document Q&A with Smart Citations</p>
+              <p className="text-xs text-sidebar-foreground/70">
+                Document Q&A with Smart Citations
+              </p>
             </div>
           </div>
           <nav className="flex items-center gap-2">
@@ -237,7 +261,11 @@ export default function ChatPage() {
             <button
               onClick={() => setShowDocumentPanel(!showDocumentPanel)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium ml-2"
-              title={showDocumentPanel ? "Hide document panel" : "Show document panel"}
+              title={
+                showDocumentPanel
+                  ? "Hide document panel"
+                  : "Show document panel"
+              }
             >
               {showDocumentPanel ? (
                 <PanelLeftClose className="w-4 h-4" />
@@ -256,7 +284,7 @@ export default function ChatPage() {
           {showDocumentPanel && (
             <>
               <ResizablePanel defaultSize={40} minSize={25} maxSize={60}>
-                <DocumentViewer 
+                <DocumentViewer
                   sources={currentSources}
                   activeCitation={activeCitation}
                   onClose={() => setShowDocumentPanel(false)}
@@ -267,7 +295,10 @@ export default function ChatPage() {
           )}
 
           {/* Chat Panel */}
-          <ResizablePanel defaultSize={showDocumentPanel ? 60 : 100} minSize={40}>
+          <ResizablePanel
+            defaultSize={showDocumentPanel ? 60 : 100}
+            minSize={40}
+          >
             <div className="flex flex-col h-full">
               {/* Messages Area */}
               <ScrollArea className="flex-1">
@@ -277,10 +308,14 @@ export default function ChatPage() {
                     <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-medium text-destructive">{error}</p>
+                        <p className="text-sm font-medium text-destructive">
+                          {error}
+                        </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Make sure the Pathway server is running on port{" "}
-                          {process.env.NEXT_PUBLIC_API_BASE_URL?.split(":").pop()}
+                          {process.env.NEXT_PUBLIC_API_BASE_URL?.split(
+                            ":",
+                          ).pop()}
                         </p>
                       </div>
                     </div>
@@ -295,23 +330,26 @@ export default function ChatPage() {
                         Chat with Your Documents
                       </h2>
                       <p className="text-muted-foreground max-w-md mb-4 leading-relaxed">
-                        Ask questions about your indexed documents. The AI will search
-                        through them using RAG and provide answers with <span className="citation-badge mx-1">1</span> smart citations.
+                        Ask questions about your indexed documents. The AI will
+                        search through them using RAG and provide answers with{" "}
+                        <span className="citation-badge mx-1">1</span> smart
+                        citations.
                       </p>
                       <p className="text-sm text-muted-foreground">
                         Click on any citation to view the source document.
                       </p>
                       {!backendAvailable && (
                         <p className="text-sm text-destructive mt-4 font-medium">
-                          Backend server is not available. Please start the Pathway server.
+                          Backend server is not available. Please start the
+                          Pathway server.
                         </p>
                       )}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {messages.map((message) => (
-                        <ChatMessage 
-                          key={message.id} 
+                        <ChatMessage
+                          key={message.id}
                           message={message}
                           onCitationClick={handleCitationClick}
                           activeCitation={activeCitation}
@@ -373,7 +411,8 @@ export default function ChatPage() {
                     </p>
                     {currentSources.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        {currentSources.length} source{currentSources.length !== 1 ? 's' : ''} available
+                        {currentSources.length} source
+                        {currentSources.length !== 1 ? "s" : ""} available
                       </p>
                     )}
                   </div>

@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeRaw from 'rehype-raw';
-import { SourceCitation } from '@/lib/types';
+import React, { useMemo } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
+import { SourceCitation } from "@/lib/types";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import 'highlight.js/styles/github-dark.css';
+} from "@/components/ui/tooltip";
+import "highlight.js/styles/github-dark.css";
 
 interface MessageWithCitationsProps {
   content: string;
@@ -21,11 +21,11 @@ interface MessageWithCitationsProps {
   activeCitation?: number | null;
 }
 
-export function MessageWithCitations({ 
-  content, 
-  sources, 
+export function MessageWithCitations({
+  content,
+  sources,
   onCitationClick,
-  activeCitation 
+  activeCitation,
 }: MessageWithCitationsProps) {
   // Process content to replace citations with interactive elements
   const processedContent = useMemo(() => {
@@ -36,18 +36,18 @@ export function MessageWithCitations({
     // Replace [1], [2], etc. with special markers we can process
     let processed = content;
     const citationRegex = /\[(\d+)\]/g;
-    
+
     // We'll use a custom component for citations in markdown
     return processed;
   }, [content, sources]);
 
   // Custom renderer for text that includes citation tooltips
-  const renderWithCitations = (text: string) => {
+  const renderWithCitations = (text: string): React.ReactNode => {
     if (!sources || sources.length === 0) {
       return text;
     }
 
-    const parts = [];
+    const parts: (string | React.ReactElement)[] = [];
     const citationRegex = /\[(\d+)\]/g;
     let lastIndex = 0;
     let match;
@@ -65,22 +65,28 @@ export function MessageWithCitations({
       if (source) {
         const isActive = activeCitation === citationNum;
         parts.push(
-          <TooltipProvider key={`citation-${match.index}`}>
+          <TooltipProvider key={`citation-${match.index}-${citationNum}`}>
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onCitationClick?.(citationNum)}
-                  className={`citation-badge ${isActive ? 'bg-primary text-primary-foreground scale-110' : ''}`}
+                  className={`citation-badge ${isActive ? "bg-primary text-primary-foreground scale-110" : ""}`}
                   aria-label={`View source ${citationNum}`}
                 >
                   {citationNum}
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-sm p-3 bg-card border border-border shadow-lg" side="top">
+              <TooltipContent
+                className="max-w-sm p-3 bg-card border border-border shadow-lg"
+                side="top"
+              >
                 <div className="space-y-1">
-                  <div className="font-semibold text-sm text-foreground">{source.documentName}</div>
+                  <div className="font-semibold text-sm text-foreground">
+                    {source.documentName}
+                  </div>
                   <div className="text-xs text-muted-foreground">
-                    Page {source.lineNumber} • {(source.relevance * 100).toFixed(0)}% relevant
+                    Page {source.lineNumber} •{" "}
+                    {(source.relevance * 100).toFixed(0)}% relevant
                   </div>
                   <div className="text-xs italic mt-2 line-clamp-3 text-muted-foreground">
                     "{source.excerpt}"
@@ -91,7 +97,7 @@ export function MessageWithCitations({
                 </div>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
+          </TooltipProvider>,
         );
       }
       // If no source exists, skip the citation marker entirely (don't render orphaned citations)
@@ -104,7 +110,27 @@ export function MessageWithCitations({
       parts.push(text.substring(lastIndex));
     }
 
-    return parts.length > 0 ? parts : text;
+    return parts.length > 0 ? <>{parts}</> : text;
+  };
+
+  // Helper to process children recursively
+  const processChildren = (children: any): any => {
+    if (typeof children === "string") {
+      return renderWithCitations(children);
+    }
+    if (Array.isArray(children)) {
+      return children.map((child, idx) => {
+        if (typeof child === "string") {
+          return (
+            <React.Fragment key={`text-${idx}`}>
+              {renderWithCitations(child)}
+            </React.Fragment>
+          );
+        }
+        return child;
+      });
+    }
+    return children;
   };
 
   return (
@@ -115,12 +141,15 @@ export function MessageWithCitations({
         components={{
           // Custom styling for markdown elements
           p: ({ children }) => (
-            <p className="mb-2 last:mb-0">
-              {typeof children === 'string' ? renderWithCitations(children) : children}
-            </p>
+            <p className="mb-2 last:mb-0">{processChildren(children)}</p>
           ),
           a: ({ href, children }) => (
-            <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            <a
+              href={href}
+              className="text-primary hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               {children}
             </a>
           ),
@@ -139,11 +168,20 @@ export function MessageWithCitations({
               {children}
             </pre>
           ),
-          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+          ul: ({ children }) => (
+            <ul className="list-disc list-inside mb-2 space-y-1">
+              {processChildren(children)}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal list-inside mb-2 space-y-1">
+              {processChildren(children)}
+            </ol>
+          ),
+          li: ({ children }) => <li>{processChildren(children)}</li>,
           blockquote: ({ children }) => (
             <blockquote className="border-l-4 border-primary pl-4 italic my-2">
-              {children}
+              {processChildren(children)}
             </blockquote>
           ),
           table: ({ children }) => (
@@ -160,11 +198,9 @@ export function MessageWithCitations({
           ),
           td: ({ children }) => (
             <td className="border border-border px-4 py-2">
-              {children}
+              {processChildren(children)}
             </td>
           ),
-          // Handle text nodes with citations
-          text: ({ value }) => <>{renderWithCitations(value)}</>,
         }}
       >
         {content}

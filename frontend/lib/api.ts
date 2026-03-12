@@ -28,6 +28,7 @@ export interface ContextDocument {
 export interface AskQuestionResponse {
   response: string;
   context_docs?: ContextDocument[];
+  sources?: ContextDocument[]; // Pathway may use 'sources' instead
 }
 
 export interface RetrieveRequest {
