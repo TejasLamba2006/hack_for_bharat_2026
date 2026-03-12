@@ -214,7 +214,6 @@ def main():
         llm=llm_chat,
         indexer=doc_store,
         search_topk=TOP_K,
-        context_formatter=lambda docs: "\n".join(f"Document {i+1}:\n{doc.text}" for i, doc in enumerate(docs)),
         prompt_template=(
             "You are a document Q&A assistant that answers questions based ONLY on the provided document context. Follow these rules strictly:\n\n"
             "### Response Guidelines:\n\n"
