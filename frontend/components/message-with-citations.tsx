@@ -3,7 +3,6 @@
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import { SourceCitation } from '@/lib/types';
 import {
   Tooltip,
@@ -11,7 +10,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import 'highlight.js/styles/github-dark.css';
 
 interface MessageWithCitationsProps {
   content: string;
@@ -84,7 +82,6 @@ export function MessageWithCitations({
     <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
         components={{
           // Intercept links that are citation placeholders
           a: ({ href, children }) => {
