@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Backend URL for the Flask proxy server
 const BACKEND_URL = (
   process.env.BACKEND_API_URL || "http://207.244.225.17:9001"
 ).replace(/\/$/, "");
+
+// Force dynamic rendering to avoid caching issues
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,

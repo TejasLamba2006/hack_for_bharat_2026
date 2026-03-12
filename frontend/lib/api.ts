@@ -363,10 +363,15 @@ export async function listFiles(): Promise<ListFilesResponse> {
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
+    // Use local API health endpoint which proxies to backend
+    const response = await fetch("/api/health", {
       method: "GET",
     });
-    return response.ok;
+    if (response.ok) {
+      const data = await response.json();
+      return data.status === "connected";
+    }
+    return false;
   } catch {
     // Silently return false when backend is unavailable
     return false;
