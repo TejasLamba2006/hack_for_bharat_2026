@@ -1,14 +1,14 @@
 /**
  * API client for Flask Proxy Server
- * All requests go through the proxy on port 9001 (no CORS issues!)
- * Proxy forwards RAG requests to Pathway server on port 9000
+ * All requests go through Next.js API routes to avoid CORS/mixed content issues
+ * The API routes proxy to the backend server
  */
 
 import type { DocumentFile } from "./types";
 
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://207.244.225.17:9001"
-).replace(/\/$/, "");
+// Use local API proxy to avoid CORS and mixed content issues
+// The proxy route forwards requests to the actual backend
+const API_BASE_URL = "/api/proxy";
 
 export interface AskQuestionRequest {
   prompt: string;
