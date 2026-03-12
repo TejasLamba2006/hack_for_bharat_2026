@@ -20,25 +20,20 @@ if [ ! -f .env ]; then
     read -p "Press Enter once you've configured .env..."
 fi
 
-# Check Python version
-echo "Checking Python version..."
-if command -v python3 >/dev/null 2>&1; then
-    PYTHON_CMD="python3"
-elif command -v python >/dev/null 2>&1; then
-    PYTHON_CMD="python"
-else
-    echo "❌ Error: Python not found. Please install Python 3."
-    exit 1
+# Check for uv
+echo "Checking for uv..."
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv not found. Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.cargo/bin:$PATH"
 fi
-
-PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
-echo "✅ Found Python ($PYTHON_CMD): $PYTHON_VERSION"
+echo "✅ uv is ready"
 echo ""
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
-    $PYTHON_CMD -m venv venv
+    uv venv
     echo "✅ Virtual environment created"
     echo ""
 fi
@@ -56,8 +51,7 @@ echo ""
 
 # Install dependencies
 echo "Installing Python dependencies..."
-pip install -q --upgrade pip
-pip install -q -r requirements.txt
+uv pip install -r requirements.txt
 echo "✅ Dependencies installed"
 echo ""
 
@@ -79,4 +73,4 @@ echo ""
 echo "Press Ctrl+C to stop the server"
 echo ""
 
-$PYTHON_CMD -m backend.services.pathway_rag_server
+python -m backend.services.pathway_rag_server
