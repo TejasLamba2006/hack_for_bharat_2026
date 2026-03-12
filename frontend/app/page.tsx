@@ -5,15 +5,10 @@ import { DocumentFile } from "@/lib/types";
 import { storage } from "@/lib/storage";
 import { UploadForm } from "@/components/upload-form";
 import { DocumentList } from "@/components/document-list";
-import {
-  Upload,
-  FileText,
-  MessageCircle,
-  RefreshCw,
-  DollarSign,
-} from "lucide-react";
+import { Upload, MessageCircle, RefreshCw, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { BrandIdentity } from "@/components/brand-identity";
 
 export default function Home() {
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
@@ -65,17 +60,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-border bg-sidebar text-sidebar-foreground sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-sidebar-accent rounded-lg">
-              <FileText className="w-5 h-5 text-sidebar-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">DocSearch</h1>
-              <p className="text-xs text-sidebar-foreground/70">
-                Document Q&A with Smart Citations
-              </p>
-            </div>
-          </div>
+          <BrandIdentity />
           <nav className="flex items-center gap-2">
             <Link
               href="/"

@@ -5,8 +5,9 @@ import { DocumentFile, SearchResult } from "@/lib/types";
 import { storage } from "@/lib/storage";
 import { api } from "@/lib/api";
 import { SearchResults } from "@/components/search-results";
-import { FileText, Search as SearchIcon, AlertCircle } from "lucide-react";
+import { Search as SearchIcon, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { BrandIdentity } from "@/components/brand-identity";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
@@ -136,31 +137,26 @@ export default function SearchPage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary rounded-lg">
-              <FileText className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">DocSearch</h1>
-          </div>
+      <header className="border-b border-border bg-sidebar text-sidebar-foreground sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+          <BrandIdentity />
           <nav className="flex items-center gap-4">
             <Link
               href="/"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-foreground hover:bg-accent transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium"
             >
               Upload
             </Link>
             <Link
               href="/search"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-colors text-sm font-medium"
             >
               <SearchIcon className="w-4 h-4" />
               Search
             </Link>
             <Link
               href="/admin"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-foreground hover:bg-accent transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm font-medium"
             >
               Admin
             </Link>

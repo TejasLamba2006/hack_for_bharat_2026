@@ -7,7 +7,6 @@ import { api } from "@/lib/api";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { DocumentList } from "@/components/document-list";
 import {
-  FileText,
   BarChart3,
   Trash2,
   MessageCircle,
@@ -17,6 +16,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import Link from "next/link";
+import { BrandIdentity } from "@/components/brand-identity";
 
 export default function AdminPage() {
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
@@ -118,17 +118,7 @@ export default function AdminPage() {
       {/* Header */}
       <header className="border-b border-border bg-sidebar text-sidebar-foreground sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-sidebar-accent rounded-lg">
-              <FileText className="w-5 h-5 text-sidebar-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">DocSearch</h1>
-              <p className="text-xs text-sidebar-foreground/70">
-                Document Q&A with Smart Citations
-              </p>
-            </div>
-          </div>
+          <BrandIdentity />
           <nav className="flex items-center gap-2">
             <Link
               href="/"

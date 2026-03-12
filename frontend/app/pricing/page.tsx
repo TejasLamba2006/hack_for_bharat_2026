@@ -2,8 +2,9 @@
 
 import { PricingCard } from "@/components/pricing-card";
 import { PricingTable } from "@/components/pricing-table";
-import { FileText, Upload, MessageCircle, Settings } from "lucide-react";
+import { Upload, MessageCircle, Settings } from "lucide-react";
 import Link from "next/link";
+import { BrandIdentity } from "@/components/brand-identity";
 
 const pricingPlans = [
   {
@@ -76,19 +77,9 @@ export default function PricingPage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-sidebar text-sidebar-foreground sticky top-0 z-40 backdrop-blur-sm bg-sidebar/95">
+      <header className="border-b border-border bg-sidebar/95 text-sidebar-foreground sticky top-0 z-40 backdrop-blur-sm">
         <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-sidebar-accent rounded-lg">
-              <FileText className="w-5 h-5 text-sidebar-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">DocSearch</h1>
-              <p className="text-xs text-sidebar-foreground/70">
-                Document Q&A with Smart Citations
-              </p>
-            </div>
-          </div>
+          <BrandIdentity />
           <nav className="flex items-center gap-2">
             <Link
               href="/"
