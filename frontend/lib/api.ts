@@ -157,20 +157,22 @@ export async function askQuestion(
     const data = await response.json();
     
     if (!response.ok) {
-      // Check if it's a proxy error
-      if (data.error === "Backend unavailable") {
-        throw new Error("Backend service is currently unavailable. Please try again later.");
+      // Handle various backend errors with user-friendly messages
+      if (data.error === "Backend unavailable" || data.message?.includes("Pathway")) {
+        throw new Error("The AI service is currently starting up or unavailable. Please try again in a moment.");
       }
-      throw new Error(data.message || `Failed to ask question: ${response.statusText}`);
+      throw new Error(data.message || "Failed to process your question. Please try again.");
     }
 
     return data;
   } catch (error) {
-    if (error instanceof Error && error.message.includes("Backend service")) {
+    if (error instanceof Error && (
+      error.message.includes("AI service") || 
+      error.message.includes("Failed to process")
+    )) {
       throw error;
     }
-    console.warn("Backend unavailable:", error);
-    throw new Error("Backend service is currently unavailable. Please try again later.");
+    throw new Error("The AI service is currently unavailable. Please try again in a moment.");
   }
 }
 
